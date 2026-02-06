@@ -306,6 +306,11 @@ add_library(freertos_kernel_port OBJECT
         GCC/IA32_flat/port.c
         GCC/IA32_flat/portASM.S>
 
+    # i486 flat memory model port for GCC
+    $<$<STREQUAL:${FREERTOS_PORT},GCC_I486_FLAT>:
+        GCC/I486_flat/port.c
+        GCC/I486_flat/portASM.S>
+
     # Xilinx MicroBlaze soft core ports for GCC
     $<$<STREQUAL:${FREERTOS_PORT},GCC_MICROBLAZE>:
         GCC/MicroBlaze/port.c
@@ -1049,6 +1054,9 @@ target_include_directories(freertos_kernel_port_headers INTERFACE
 
     # x86 / IA32 flat memory model port for GCC
     $<$<STREQUAL:${FREERTOS_PORT},GCC_IA32_FLAT>:${CMAKE_CURRENT_LIST_DIR}/GCC/IA32_flat>
+
+    # i486 flat memory model port for GCC
+    $<$<STREQUAL:${FREERTOS_PORT},GCC_I486_FLAT>:${CMAKE_CURRENT_LIST_DIR}/GCC/I486_flat>
 
     # Intel (formerly Altera) NIOS II soft core port for GCC
     $<$<STREQUAL:${FREERTOS_PORT},GCC_NIOSII>:${CMAKE_CURRENT_LIST_DIR}/GCC/NiosII>

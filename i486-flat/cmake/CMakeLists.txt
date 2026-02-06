@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
-project(example)
+project(i486-flat)
 
 set(FREERTOS_KERNEL_PATH "../../")
+set(PORT_I486_FLAT_PATH "../../portable/GCC/I486_flat")
 
 # Add the freertos_config for FreeRTOS-Kernel
 add_library(freertos_config INTERFACE)
@@ -21,7 +22,8 @@ endif()
 set(FREERTOS_HEAP "4" CACHE STRING "" FORCE)
 
 # Select the native compile PORT
-set(FREERTOS_PORT "TEMPLATE" CACHE STRING "" FORCE)
+set(FREERTOS_PORT GCC_I486_FLAT CACHE STRING "Target FreeRTOS port" FORCE)
+message(STATUS "FreeRTOS port = ${FREERTOS_PORT}")
 
 # Adding the FreeRTOS-Kernel subdirectory
 add_subdirectory(${FREERTOS_KERNEL_PATH} FreeRTOS-Kernel)
@@ -66,9 +68,20 @@ target_compile_options(freertos_kernel PRIVATE
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-cast-align> )
 
 add_executable(${PROJECT_NAME}
+    ${PORT_I486_FLAT_PATH}/start.S
     main.c
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${FREERTOS_KERNEL_PATH}/include
+    ${FREERTOS_KERNEL_PATH}/portable/GCC/I486_flat
 )
 
 target_link_libraries(${PROJECT_NAME} freertos_kernel freertos_config)
 
 set_property(TARGET freertos_kernel PROPERTY C_STANDARD 90)
+
+target_link_options(${PROJECT_NAME}
+    PRIVATE
+    -T ${PORT_I486_FLAT_PATH}/linker.ld
+)

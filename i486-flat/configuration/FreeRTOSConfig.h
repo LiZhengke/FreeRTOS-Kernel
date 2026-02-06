@@ -42,7 +42,7 @@
 
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
-
+#include <stdint.h>
 /******************************************************************************/
 /* Hardware description related definitions. **********************************/
 /******************************************************************************/
@@ -136,7 +136,7 @@
  *
  * Defining configTICK_TYPE_WIDTH_IN_BITS as TICK_TYPE_WIDTH_64_BITS causes
  * TickType_t to be defined (typedef'ed) as an unsigned 64-bit type. */
-#define configTICK_TYPE_WIDTH_IN_BITS              TICK_TYPE_WIDTH_64_BITS
+#define configTICK_TYPE_WIDTH_IN_BITS              TICK_TYPE_WIDTH_32_BITS
 
 /* Set configIDLE_SHOULD_YIELD to 1 to have the Idle task yield to an
  * application task if there is an Idle priority (priority 0) application task
@@ -292,7 +292,7 @@
 /* Set configAPPLICATION_ALLOCATED_HEAP to 1 to have the application allocate
  * the array used as the FreeRTOS heap.  Set to 0 to have the linker allocate
  * the array used as the FreeRTOS heap.  Defaults to 0 if left undefined. */
-#define configAPPLICATION_ALLOCATED_HEAP             0
+#define configAPPLICATION_ALLOCATED_HEAP             1
 
 /* Set configSTACK_ALLOCATION_FROM_SEPARATE_HEAP to 1 to have task stacks
  * allocated from somewhere other than the FreeRTOS heap.  This is useful if you
@@ -327,7 +327,7 @@
 
 /* Another name for configMAX_SYSCALL_INTERRUPT_PRIORITY - the name used depends
  * on the FreeRTOS port. */
-#define configMAX_API_CALL_INTERRUPT_PRIORITY    0
+#define configMAX_API_CALL_INTERRUPT_PRIORITY    2
 
 /******************************************************************************/
 /* Hook and callback function related definitions. ****************************/
@@ -505,6 +505,8 @@
 /******************************************************************************/
 /* SMP( Symmetric MultiProcessing ) Specific Configuration definitions. *******/
 /******************************************************************************/
+#define configUSE_SMP                0
+#define configNUMBER_OF_CORES        1
 
 /* Set configNUMBER_OF_CORES to the number of available processor cores.
  * Defaults to 1 if left undefined. */
@@ -528,7 +530,7 @@
  * vTaskCoreAffinityGet APIs can be used to set and retrieve which cores a task
  * can run on. If configUSE_CORE_AFFINITY is set to 0 then the FreeRTOS
  * scheduler is free to run any task on any available core. */
-#define configUSE_CORE_AFFINITY                   0
+/* #define configUSE_CORE_AFFINITY                   0 */
 
 /* When using SMP with core affinity feature enabled, set
  * configTASK_DEFAULT_CORE_AFFINITY to change the default core affinity mask for
@@ -646,6 +648,8 @@
  * contain the most recent error for that task. */
 #define configUSE_POSIX_ERRNO                  0
 
+#define configISR_STACK_SIZE                   512
+#define configUSE_COMMON_INTERRUPT_ENTRY_POINT 1
 /* Set the following INCLUDE_* constants to 1 to include the named API function,
  * or 0 to exclude the named API function.  Most linkers will remove unused
  * functions even when the constant is 1. */
@@ -664,5 +668,8 @@
 #define INCLUDE_xTaskAbortDelay                0
 #define INCLUDE_xTaskGetHandle                 0
 #define INCLUDE_xTaskResumeFromISR             1
+
+extern uint8_t __heap_start[];
+extern uint8_t __heap_end[];
 
 #endif /* FREERTOS_CONFIG_H */

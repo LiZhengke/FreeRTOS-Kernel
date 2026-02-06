@@ -62,9 +62,9 @@ typedef void (* TaskFunction_t)( void * arg );
 #define errQUEUE_FULL                            ( ( BaseType_t ) 0 )
 
 /* FreeRTOS error definitions. */
-#define errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY    ( -1 )
-#define errQUEUE_BLOCKED                         ( -4 )
-#define errQUEUE_YIELD                           ( -5 )
+#define errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY    ( (BaseType_t)-1 )
+#define errQUEUE_BLOCKED                         ( (BaseType_t)-4 )
+#define errQUEUE_YIELD                           ( (BaseType_t)-5 )
 
 /* Macros used for basic data corruption checks. */
 #ifndef configUSE_LIST_DATA_INTEGRITY_CHECK_BYTES
