@@ -42,7 +42,7 @@
 
 #ifndef FREERTOS_CONFIG_H
 #define FREERTOS_CONFIG_H
-#include <stdint.h>
+
 /******************************************************************************/
 /* Hardware description related definitions. **********************************/
 /******************************************************************************/
@@ -669,7 +669,9 @@
 #define INCLUDE_xTaskGetHandle                 0
 #define INCLUDE_xTaskResumeFromISR             1
 
+#ifndef __ASSEMBLER__
 extern uint8_t __heap_start[];
 extern uint8_t __heap_end[];
+#endif
 
 #endif /* FREERTOS_CONFIG_H */

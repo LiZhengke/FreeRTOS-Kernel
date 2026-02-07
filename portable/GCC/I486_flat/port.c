@@ -36,6 +36,7 @@
 #define XSTR(x) STR(x)
 
 _Static_assert(sizeof(void*) == 4, "ERROR: pointer is not 32-bit");
+_Static_assert(configUSE_COMMON_INTERRUPT_ENTRY_POINT == 1, "ERROR: configUSE_COMMON_INTERRUPT_ENTRY_POINT！=1");
 
 uint8_t ucHeap[1] __attribute__((section(".heap")));
 
@@ -695,3 +696,37 @@ void vGenerateYieldInterrupt( void )
 {
     __asm volatile ( portYIELD_INTERRUPT );
 }
+
+void *memset(void *s, int c, size_t n)
+{
+    unsigned char *p = s;
+    while (n--)
+        *p++ = (unsigned char)c;
+    return s;
+}
+
+void *memcpy(void *dest, const void *src, size_t n)
+{
+    unsigned char *d = dest;
+    const unsigned char *s = src;
+    while (n--)
+        *d++ = *s++;
+    return dest;
+}
+
+static inline void outb(unsigned short port, unsigned char val)
+{
+    __asm__ volatile ("outb %0, %1" :: "a"(val), "Nd"(port));
+}
+
+void putchar(char c)
+{
+    outb(0xe9, c);   // QEMU debug port
+}
+
+void puts(const char *s)
+{
+    while (*s)
+        putchar(*s++);
+}
+

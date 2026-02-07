@@ -266,3 +266,5 @@ vPortAPICSpuriousHandler:
 .endfunc
 
 .end
+
+.section .note.GNU-stack,"",@progbits

@@ -67,7 +67,7 @@ int main( void )
     static StaticTask_t exampleTaskTCB;
     static StackType_t exampleTaskStack[ configMINIMAL_STACK_SIZE ];
 
-    ( void ) printf( "Example FreeRTOS Project\n" );
+    ( void ) puts( "Example FreeRTOS Project\n" );
 
     ( void ) xTaskCreateStatic( exampleTask,
                                 "example",

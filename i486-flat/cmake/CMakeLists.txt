@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(i486-flat)
+project(i486-flat LANGUAGES C ASM)
 
 set(FREERTOS_KERNEL_PATH "../../")
 set(PORT_I486_FLAT_PATH "../../portable/GCC/I486_flat")

@@ -14,8 +14,8 @@ set(CMAKE_LINKER ld)
 set(COMMON_FLAGS "-m32 -ffreestanding -fno-pic -fno-pie -fno-stack-protector -fno-builtin -Wall -Wextra -Werror")
 
 set(CMAKE_C_FLAGS "${COMMON_FLAGS}")
-set(CMAKE_ASM_FLAGS "-m32")
-set(CMAKE_EXE_LINKER_FLAGS "-m32 -nostdlib -Wl,--build-id=none")
+set(CMAKE_ASM_FLAGS "-m32 -fno-pie -fno-pic")
+set(CMAKE_EXE_LINKER_FLAGS "-m32 -nostdlib -ffreestanding -no-pie -Wl,--build-id=none")
 
 # Stop CMake to run any test
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
