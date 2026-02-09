@@ -32,11 +32,14 @@
 /* Scheduler includes. */
 #include "FreeRTOS.h"
 #include "task.h"
+#include "portmacro.h"
+#include "io.h"
+#include "i8259.h"
+
 #define STR(x) #x
 #define XSTR(x) STR(x)
 
 _Static_assert(sizeof(void*) == 4, "ERROR: pointer is not 32-bit");
-_Static_assert(configUSE_COMMON_INTERRUPT_ENTRY_POINT == 1, "ERROR: configUSE_COMMON_INTERRUPT_ENTRY_POINT！=1");
 
 uint8_t ucHeap[1] __attribute__((section(".heap")));
 
@@ -125,10 +128,12 @@ extern void vPortCentralInterruptWrapper( void );
  */
 extern void vPortYieldCall( void );
 
+#if (configUSE_APIC == 1)
 /*
  * Configure the APIC to generate the RTOS tick.
  */
 static void prvSetupTimerInterrupt( void );
+#endif /* configUSE_APIC */
 
 /*
  * Tick interrupt handler.
@@ -322,6 +327,14 @@ void vPortSetupIDT( void )
             }
         }
     }
+    #else
+        (void) ulNum;
+        /* Install timer handler.  */
+        prvSetInterruptGate( ( uint8_t ) portAPIC_TIMER_INT_VECTOR, vPortTimerHandler, portIDT_FLAGS );
+
+        /* Install Yield handler. */
+        prvSetInterruptGate( ( uint8_t ) portAPIC_YIELD_INT_VECTOR, vPortYieldCall, portIDT_FLAGS );
+
     #endif /* configUSE_COMMON_INTERRUPT_ENTRY_POINT */
 
     /* Set IDT address. */
@@ -349,7 +362,7 @@ static void prvTaskExitError( void )
     }
 }
 /*-----------------------------------------------------------*/
-
+#if (configUSE_APIC == 1)
 static void prvSetupTimerInterrupt( void )
 {
     extern void vPortAPICErrorHandlerWrapper( void );
@@ -386,6 +399,7 @@ static void prvSetupTimerInterrupt( void )
     portAPIC_TMRDIV = portAPIC_DIV_16;
     portAPIC_TIMER_INITIAL_COUNT = ( ( configCPU_CLOCK_HZ >> 4UL ) / configTICK_RATE_HZ ) - 1UL;
 }
+#endif /* configUSE_APIC */
 /*-----------------------------------------------------------*/
 
 BaseType_t xPortStartScheduler( void )
@@ -410,20 +424,28 @@ BaseType_t xPortStartScheduler( void )
     /* Initialise Interrupt Descriptor Table (IDT). */
     vPortSetupIDT();
 
+#if (configUSE_APIC == 1)
     /* Initialise LAPIC and install system handlers. */
     prvSetupTimerInterrupt();
+#endif /* configUSE_APIC */
+
+#if (configUSE_I8259 == 1)
+    i8259_init();
+    timer_init(100);
+#endif /* configUSE_I8259 */
 
     /* Make sure the stack used by interrupts is aligned. */
     ulTopOfSystemStack &= ~portBYTE_ALIGNMENT_MASK;
 
     ulCriticalNesting = 0;
 
+#if (configUSE_APIC == 1)
     /* Enable LAPIC Counter.*/
     portAPIC_LVT_TIMER = portAPIC_TIMER_PERIODIC | portAPIC_TIMER_INT_VECTOR;
 
     /* Sometimes needed. */
     portAPIC_TMRDIV = portAPIC_DIV_16;
-
+#endif /* configUSE_APIC */
     /* Should not return from the following function as the scheduler will then
      * be executing the tasks. */
     vPortStartFirstTask();
@@ -714,14 +736,9 @@ void *memcpy(void *dest, const void *src, size_t n)
     return dest;
 }
 
-static inline void outb(unsigned short port, unsigned char val)
-{
-    __asm__ volatile ("outb %0, %1" :: "a"(val), "Nd"(port));
-}
-
 void putchar(char c)
 {
-    outb(0xe9, c);   // QEMU debug port
+    outb(0x3F8, c);   // COM1 port
 }
 
 void puts(const char *s)

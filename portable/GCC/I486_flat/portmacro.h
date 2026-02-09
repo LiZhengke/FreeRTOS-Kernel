@@ -77,11 +77,11 @@ typedef uint32_t         UBaseType_t;
  * and 15 is the highest.  Therefore the following two interrupts are at the lowest
  * priority.  *NOTE 1* If the yield vector is changed then it must also be changed
  * in the portYIELD_INTERRUPT definition immediately below. */
-#define portAPIC_TIMER_INT_VECTOR       ( 0x21 )
-#define portAPIC_YIELD_INT_VECTOR       ( 0x20 )
+#define portAPIC_TIMER_INT_VECTOR       ( 0x20 )
+#define portAPIC_YIELD_INT_VECTOR       ( 0x21 )
 
 /* Build yield interrupt instruction. */
-#define portYIELD_INTERRUPT             "int $0x20"
+#define portYIELD_INTERRUPT             "int $0x21"
 
 /* APIC register addresses. */
 #define portAPIC_EOI                    ( *( ( volatile uint32_t * ) 0xFEE000B0UL ) )

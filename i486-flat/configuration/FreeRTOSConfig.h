@@ -327,7 +327,7 @@
 
 /* Another name for configMAX_SYSCALL_INTERRUPT_PRIORITY - the name used depends
  * on the FreeRTOS port. */
-#define configMAX_API_CALL_INTERRUPT_PRIORITY    2
+#define configMAX_API_CALL_INTERRUPT_PRIORITY    15
 
 /******************************************************************************/
 /* Hook and callback function related definitions. ****************************/
@@ -648,8 +648,21 @@
  * contain the most recent error for that task. */
 #define configUSE_POSIX_ERRNO                  0
 
+/* configISR_STACK_SIZE sets the size of the stack used for interrupt service
+ * routines (ISRs) in words. This is the dedicated stack space allocated for
+ * handling interrupts. */
 #define configISR_STACK_SIZE                   512
-#define configUSE_COMMON_INTERRUPT_ENTRY_POINT 1
+
+#define configUSE_I8259                        1
+/* configUSE_APIC determines whether to use the Advanced Programmable Interrupt
+ * Controller (APIC) for interrupt handling. Set to 1 to enable APIC support,
+ * or 0 to use alternative interrupt controller mechanisms. */
+#define configUSE_APIC                         0
+
+/* configUSE_COMMON_INTERRUPT_ENTRY_POINT determines whether all interrupts
+ * share a common entry point. Set to 1 to route all interrupts through a
+ * single entry handler, or 0 to use individual interrupt entry points. */
+#define configUSE_COMMON_INTERRUPT_ENTRY_POINT 0
 /* Set the following INCLUDE_* constants to 1 to include the named API function,
  * or 0 to exclude the named API function.  Most linkers will remove unused
  * functions even when the constant is 1. */

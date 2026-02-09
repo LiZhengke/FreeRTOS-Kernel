@@ -11,10 +11,10 @@ set(CMAKE_ASM_COMPILER gcc)
 set(CMAKE_LINKER ld)
 
 # Force 32-bit + freestanding
-set(COMMON_FLAGS "-m32 -ffreestanding -fno-pic -fno-pie -fno-stack-protector -fno-builtin -Wall -Wextra -Werror")
+set(COMMON_FLAGS "-m32 -ffreestanding -fno-pic -fno-pie -fno-stack-protector -fno-builtin -g -ggdb -Wall -Wextra -Werror")
 
 set(CMAKE_C_FLAGS "${COMMON_FLAGS}")
-set(CMAKE_ASM_FLAGS "-m32 -fno-pie -fno-pic")
+set(CMAKE_ASM_FLAGS "-m32 -fno-pie -fno-pic -g")
 set(CMAKE_EXE_LINKER_FLAGS "-m32 -nostdlib -ffreestanding -no-pie -Wl,--build-id=none")
 
 # Stop CMake to run any test

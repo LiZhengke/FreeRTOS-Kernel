@@ -215,9 +215,17 @@ _skip_context_switch:
 
     popa
 
-    /* EOI. */
-    movl    $0x00, (0xFEE000B0)
+    .if configUSE_APIC == 1
+        /* EOI. */
+        movl    $0x00, (0xFEE000B0)
+    .elif configUSE_I8259 == 1
+        /* PIC EOI. */
+        movb $0x20, %al
+        outb %al, $0x20
+        outb %al, $0xA0
+    .endif
     iret
+
 
 .endfunc
 /*-----------------------------------------------------------*/

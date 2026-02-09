@@ -45,15 +45,16 @@
 
 /*-----------------------------------------------------------*/
 
-static void exampleTask( void * parameters ) __attribute__( ( noreturn ) );
+static void TaskMain( void * parameters ) __attribute__( ( noreturn ) );
 
 /*-----------------------------------------------------------*/
 
-static void exampleTask( void * parameters )
+static void TaskMain( void * parameters )
 {
     /* Unused parameters. */
     ( void ) parameters;
 
+    ( void ) puts( "TaskMain\n" );
     for( ; ; )
     {
         /* Example Task Code */
@@ -67,10 +68,10 @@ int main( void )
     static StaticTask_t exampleTaskTCB;
     static StackType_t exampleTaskStack[ configMINIMAL_STACK_SIZE ];
 
-    ( void ) puts( "Example FreeRTOS Project\n" );
+    ( void ) puts( "i486 flat Project\n" );
 
-    ( void ) xTaskCreateStatic( exampleTask,
-                                "example",
+    ( void ) xTaskCreateStatic( TaskMain,
+                                "TaskMain",
                                 configMINIMAL_STACK_SIZE,
                                 NULL,
                                 configMAX_PRIORITIES - 1U,

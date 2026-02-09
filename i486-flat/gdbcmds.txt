@@ -1,0 +1,21 @@
+set architecture i386
+set pagination off
+
+target remote :1234
+
+# 常用断点
+b _start
+b main
+b xPortStartScheduler
+b vTaskStartScheduler
+b vTaskEndScheduler
+b prvInitialiseNewTask
+b pxPortInitialiseStack
+b vPortStartFirstTask
+b vPortTimerHandler
+b vPortSetupIDT
+# 自动观察
+display/i $eip
+#display/x $eflags
+display/x $esp
+
