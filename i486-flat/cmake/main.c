@@ -54,10 +54,11 @@ static void TaskMain( void * parameters )
     /* Unused parameters. */
     ( void ) parameters;
 
-    ( void ) puts( "TaskMain\n" );
     for( ; ; )
     {
-        /* Example Task Code */
+        TickType_t tickCount = xTaskGetTickCount();
+        printf( "Tick TaskMain: %lu\n", ( unsigned long ) tickCount );
+
         vTaskDelay( 100 ); /* delay 100 ticks */
     }
 }
@@ -103,3 +104,33 @@ int main( void )
 
 #endif /* #if ( configCHECK_FOR_STACK_OVERFLOW > 0 ) */
 /*-----------------------------------------------------------*/
+#if  ( configUSE_TICK_HOOK != 0 )
+    void vApplicationTickHook( void )
+    {
+        /* This function will be called by each tick interrupt if
+         * configUSE_TICK_HOOK is set to 1 in FreeRTOSConfig.h. */
+        TickType_t tickCount = xTaskGetTickCount();
+        if( tickCount % 10 == 0 )  /* Print every 10 ticks. */
+        {
+            printf( "Tick Hook: %lu\n", ( unsigned long ) tickCount );
+        }
+    }
+#endif/* ( configUSE_TICK_HOOK != 0 ) */
+/*-----------------------------------------------------------*/
+
+#if ( configUSE_IDLE_HOOK == 1 )
+    void vApplicationIdleHook( void )
+    {
+        /* This function will be called by the idle task if
+         * configUSE_IDLE_HOOK is set to 1 in FreeRTOSConfig.h. */
+        static TickType_t last = 0;
+        TickType_t now = xTaskGetTickCount();
+
+        if (now != last) {
+            printf("Idle Hook: %lu\n", now);
+            last = now;
+        }
+    }
+#endif /* configUSE_IDLE_HOOK == 1 */
+/*-----------------------------------------------------------*/
+

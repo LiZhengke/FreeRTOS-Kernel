@@ -51,6 +51,26 @@ static void print_ptr(const void *ptr)
     }
 }
 
+static void print_dec_unsigned(unsigned long val)
+{
+    char buf[16];
+    int i = 0;
+
+    if (val == 0) {
+        putchar('0');
+        return;
+    }
+
+    while (val > 0) {
+        buf[i++] = '0' + (val % 10);
+        val /= 10;
+    }
+
+    while (i > 0) {
+        putchar(buf[--i]);
+    }
+}
+
 int printf (const char *__restrict __format, ...)
 {
     va_list ap;
@@ -63,6 +83,13 @@ int printf (const char *__restrict __format, ...)
         }
 
         __format++;  // skip %
+
+        // Check for 'l' length modifier
+        int is_long = 0;
+        if (*__format == 'l') {
+            is_long = 1;
+            __format++;
+        }
 
         switch (*__format) {
         case 'c':
@@ -81,7 +108,11 @@ int printf (const char *__restrict __format, ...)
             break;
 
         case 'u':
-            print_uint(va_arg(ap, unsigned int), 10);
+            if (is_long) {
+                print_dec_unsigned(va_arg(ap, unsigned long));
+            } else {
+                print_uint(va_arg(ap, unsigned int), 10);
+            }
             break;
 
         case 'x':
@@ -98,6 +129,7 @@ int printf (const char *__restrict __format, ...)
 
         default:
             putchar('%');
+            if (is_long) putchar('l');
             putchar(*__format);
             break;
         }
