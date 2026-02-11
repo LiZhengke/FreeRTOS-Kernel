@@ -740,10 +740,3 @@ void putchar(char c)
 {
     outb(0x3F8, c);   // COM1 port
 }
-
-void puts(const char *s)
-{
-    while (*s)
-        putchar(*s++);
-}
-
