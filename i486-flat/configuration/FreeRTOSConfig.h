@@ -666,6 +666,24 @@
 /* Set the following INCLUDE_* constants to 1 to include the named API function,
  * or 0 to exclude the named API function.  Most linkers will remove unused
  * functions even when the constant is 1. */
+
+/**
+ * @brief Enables or disables stack overflow checking for debugging purposes.
+ *
+ * When set to 1, this configuration enables stack overflow detection mechanisms
+ * that help identify stack corruption during development and testing.
+ *
+ * Stack overflow checking adds runtime overhead and should typically be disabled
+ * in production builds. When enabled, the kernel will check for stack overflows
+ * and can trigger error handlers or assertions when corruption is detected.
+ *
+ * @note Set to 0 to disable stack overflow checking (production)
+ * @note Set to 1 to enable stack overflow checking (debug/development)
+ * @note This feature requires additional memory and CPU cycles when enabled
+ */
+#define configUSE_DEBUG_STACK_CHECK            1
+
+
 #define INCLUDE_vTaskPrioritySet               1
 #define INCLUDE_uxTaskPriorityGet              1
 #define INCLUDE_vTaskDelete                    1

@@ -35,6 +35,7 @@
  * task.h is included from an application file. */
 #define MPU_WRAPPERS_INCLUDED_FROM_API_FILE
 
+#include <stdio.h>
 /* FreeRTOS includes. */
 #include "FreeRTOS.h"
 #include "task.h"
@@ -448,6 +449,10 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
 
     #if ( configUSE_POSIX_ERRNO == 1 )
         int iTaskErrno;
+    #endif
+
+    #if ( configUSE_DEBUG_STACK_CHECK == 1 )
+        configSTACK_DEPTH_TYPE uxStackDepth;
     #endif
 } tskTCB;
 
@@ -1287,7 +1292,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         configASSERT( puxStackBuffer != NULL );
         configASSERT( pxTaskBuffer != NULL );
 
-        #if ( configASSERT_DEFINED == 1 )
+        #if ( configASSERT_DEFINED == 1 ) && ( configUSE_DEBUG_STACK_CHECK == 0 )
         {
             /* Sanity check that the size of the structure used to declare a
              * variable of type StaticTask_t equals the size of the real task
@@ -2045,6 +2050,17 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     {
         mtCOVERAGE_TEST_MARKER();
     }
+
+    #if ( configUSE_DEBUG_STACK_CHECK == 1 )
+        pxNewTCB->uxStackDepth = uxStackDepth;
+    #endif
+
+    printf("Task %s stack bottom=%p top(initial)=%p size=%lu bytes\n",
+       pcName,
+       pxNewTCB->pxStack,
+       pxTopOfStack,
+       (unsigned long)uxStackDepth * sizeof(StackType_t));
+
 }
 /*-----------------------------------------------------------*/
 
@@ -8871,3 +8887,12 @@ void vTaskResetState( void )
     #endif /* #if ( configGENERATE_RUN_TIME_STATS == 1 ) */
 }
 /*-----------------------------------------------------------*/
+#if ( configUSE_DEBUG_STACK_CHECK == 1 )
+void vDebugGetCurrentStackInfo(void **stack_base,
+                               unsigned long *stack_size)
+{
+    *stack_base = (void *)pxCurrentTCB->pxStack;
+    *stack_size = (unsigned long)
+                  pxCurrentTCB->uxStackDepth * sizeof(StackType_t);
+}
+#endif /* configUSE_DEBUG_STACK_CHECK */

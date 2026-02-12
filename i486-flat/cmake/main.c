@@ -42,7 +42,7 @@
 
 /* Standard includes. */
 #include <stdio.h>
-
+#include "utils.h"
 /*-----------------------------------------------------------*/
 
 static void TaskMain( void * parameters ) __attribute__( ( noreturn ) );
@@ -51,14 +51,31 @@ static void TaskMain( void * parameters ) __attribute__( ( noreturn ) );
 
 static void TaskMain( void * parameters )
 {
+    unsigned long esp;
+    unsigned long stack_low, stack_high;
+    void *stack_base;
+    unsigned long stack_size;
     /* Unused parameters. */
     ( void ) parameters;
 
+
     for( ; ; )
     {
-        TickType_t tickCount = xTaskGetTickCount();
-        printf( "Tick TaskMain: %lu\n", ( unsigned long ) tickCount );
+        register unsigned int test asm("ebx") = 0x12345678;
 
+        TickType_t tickCount = xTaskGetTickCount();
+        esp = get_esp();
+        printf("TaskMain: tick=%lu esp=%p ebx=%x\n", tickCount, (void*)esp, test);
+        vDebugGetCurrentStackInfo(&stack_base, &stack_size);
+
+        stack_low  = (unsigned long)stack_base;
+        stack_high = stack_low + stack_size;
+        if (esp < stack_low || esp > stack_high) {
+            printf("STACK VIOLATION TaskMain! esp=%p range=[%p-%p]\n",
+                (void*)esp,
+                (void*)stack_low,
+                (void*)stack_high);
+        }
         vTaskDelay( 100 ); /* delay 100 ticks */
     }
 }
@@ -112,7 +129,7 @@ int main( void )
         TickType_t tickCount = xTaskGetTickCount();
         if( tickCount % 10 == 0 )  /* Print every 10 ticks. */
         {
-            printf( "Tick Hook: %lu\n", ( unsigned long ) tickCount );
+            printf( "Tick Hook: %lu esp=%p\n", ( unsigned long ) tickCount, ( void * ) get_esp() );
         }
     }
 #endif/* ( configUSE_TICK_HOOK != 0 ) */
@@ -125,9 +142,25 @@ int main( void )
          * configUSE_IDLE_HOOK is set to 1 in FreeRTOSConfig.h. */
         static TickType_t last = 0;
         TickType_t now = xTaskGetTickCount();
+        unsigned long esp;
+        void *stack_base;
+        unsigned long stack_size;
+        unsigned long stack_low, stack_high;
 
         if (now != last) {
-            printf("Idle Hook: %lu\n", now);
+            esp = get_esp();
+            printf("Idle: tick=%lu esp=%p\n", now, (void*)esp);
+
+            vDebugGetCurrentStackInfo(&stack_base, &stack_size);
+            stack_low  = (unsigned long)stack_base;
+            stack_high = stack_low + stack_size;
+
+            if (esp < stack_low || esp > stack_high) {
+                printf("STACK VIOLATION Idle! esp=%p range=[%p-%p]\n",
+                    (void*)esp,
+                    (void*)stack_low,
+                    (void*)stack_high);
+            }
             last = now;
         }
     }

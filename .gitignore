@@ -53,3 +53,4 @@ dkms.conf
 i486-flat/build
 c_cpp*.json
 *build/
+log*.txt
