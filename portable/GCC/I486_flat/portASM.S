@@ -44,6 +44,9 @@
     .global vPortTimerHandler
     .global vPortYieldCall
     .global vPortAPICSpuriousHandler
+    .global syscall_entry
+    .global vPortSysCall
+    .global gdt_flush
 
     .text
 
@@ -271,6 +274,67 @@ _skip_context_switch:
 vPortAPICSpuriousHandler:
     iret
 
+.endfunc
+
+.if configENABLE_RING3_TASKS == 1
+
+    .align 4
+    .func syscall_entry
+    syscall_entry:
+        cli
+        push    %ds
+        push    %es
+        push    %fs
+        push    %gs
+        pushal
+
+        mov     $0x10, %ax              /* KERNEL_DS 0x10 */
+        mov     %ax, %ds
+        mov     %ax, %es
+        mov     %ax, %fs
+        mov     %ax, %gs
+
+        /* pushl %esp */                /* Parameter: regs_t * */
+        call    syscall_dispatch
+        /* addl $4, %esp */
+
+        popal
+        pop     %gs
+        pop     %fs
+        pop     %es
+        pop     %ds
+
+        sti
+        iret
+    .endfunc
+
+    .align 4
+    .func vPortSysCall
+    vPortSysCall:
+        jmp syscall_entry
+    .endfunc
+
+.endif /* configENABLE_RING3_TASKS */
+
+/* GDT flush function - loads new GDT and reloads segment registers */
+.align 4
+.func gdt_flush
+gdt_flush:
+    movl 4(%esp), %eax      /* Get the pointer to the GDT descriptor */
+    lgdt (%eax)             /* Load the new GDT */
+
+    /* Reload all segment registers */
+    movw $0x10, %ax         /* 0x10 is the offset in the GDT to our data segment */
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
+    movw %ax, %ss
+
+    /* Far jump to reload CS with our new code segment (0x08) */
+    ljmp $0x08, $flush_cs
+flush_cs:
+    ret
 .endfunc
 
 .end

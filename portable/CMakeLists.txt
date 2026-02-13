@@ -310,7 +310,10 @@ add_library(freertos_kernel_port OBJECT
     $<$<STREQUAL:${FREERTOS_PORT},GCC_I486_FLAT>:
         GCC/I486_flat/port.c
         GCC/I486_flat/portASM.S
-        GCC/I486_flat/i8259.c>
+        GCC/I486_flat/i8259.c
+        GCC/I486_flat/gdt.c
+        GCC/I486_flat/tss.c
+        GCC/I486_flat/syscall.c>
 
     # Xilinx MicroBlaze soft core ports for GCC
     $<$<STREQUAL:${FREERTOS_PORT},GCC_MICROBLAZE>:

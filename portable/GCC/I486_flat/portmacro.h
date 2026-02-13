@@ -79,6 +79,7 @@ typedef uint32_t         UBaseType_t;
  * in the portYIELD_INTERRUPT definition immediately below. */
 #define portAPIC_TIMER_INT_VECTOR       ( 0x20 )
 #define portAPIC_YIELD_INT_VECTOR       ( 0x21 )
+#define portSYSCALL_INT_VECTOR          ( 0x30 )
 
 /* Build yield interrupt instruction. */
 #define portYIELD_INTERRUPT             "int $0x21"

@@ -683,6 +683,11 @@
  */
 #define configUSE_DEBUG_STACK_CHECK            1
 
+/* Set configENABLE_RING3_TASKS to 1 to enable Ring 3 (user mode) task support,
+ * allowing tasks to run with reduced privileges for improved system security.
+ * Set to 0 to run all tasks in Ring 0 (kernel mode). Defaults to 0 if left
+ * undefined. */
+#define configENABLE_RING3_TASKS               1
 
 #define INCLUDE_vTaskPrioritySet               1
 #define INCLUDE_uxTaskPriorityGet              1

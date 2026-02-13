@@ -35,6 +35,7 @@
 #include "portmacro.h"
 #include "io.h"
 #include "i8259.h"
+#include "tss.h"
 
 #define STR(x) #x
 #define XSTR(x) STR(x)
@@ -75,6 +76,7 @@ uint8_t ucHeap[1] __attribute__((section(".heap")));
 
 /* Only the IF bit is set so tasks start with interrupts enabled. */
 #define portINITIAL_EFLAGS               ( 0x200UL )
+#define portINITIAL_EFLAGS_RING3         ( 0x200UL )
 
 /* Error interrupts are at the highest priority vectors. */
 #define portAPIC_LVT_ERROR_VECTOR        ( 0xfe )
@@ -92,6 +94,8 @@ uint8_t ucHeap[1] __attribute__((section(".heap")));
 
 /* Default flags setting for entries in the IDT. */
 #define portIDT_FLAGS                    ( 0x8E )
+/* */
+#define portIDT_FLAGS_RING3              ( 0xEE )
 
 /* This is the lowest possible ISR vector available to application code. */
 #define portAPIC_MIN_ALLOWABLE_VECTOR    ( 0x20 )
@@ -127,6 +131,11 @@ extern void vPortCentralInterruptWrapper( void );
  * Handler for portYIELD().
  */
 extern void vPortYieldCall( void );
+
+#if (configENABLE_RING3_TASKS == 1)
+/* Handler for portSYSCALL(). */
+extern void vPortSysCall( void );
+#endif /* configENABLE_RING3_TASKS */
 
 #if (configUSE_APIC == 1)
 /*
@@ -220,14 +229,22 @@ volatile uint32_t ulInterruptNesting __attribute__( ( used ) ) = 0;
 /*
  * See header file for description.
  */
+#if configENABLE_RING3_TASKS != 1
 StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
                                      TaskFunction_t pxCode,
                                      void * pvParameters )
+#else
+StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack, /* Kernel mode stack */
+                                     StackType_t * pxTopOfUserStack, /* User mode stack */
+                                     TaskFunction_t pxCode,
+                                     void * pvParameters )
+#endif /* configENABLE_RING3_TASKS */
 {
+#if configENABLE_RING3_TASKS != 1
     uint32_t ulCodeSegment;
+#endif
 
     /* Setup the initial stack as expected by the portFREERTOS_INTERRUPT_EXIT macro. */
-
     *pxTopOfStack = 0x00;
     pxTopOfStack--;
     *pxTopOfStack = 0x00;
@@ -242,6 +259,27 @@ StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
     *pxTopOfStack = ( StackType_t ) prvTaskExitError;
     pxTopOfStack--;
 
+#if configENABLE_RING3_TASKS == 1
+    /* When configENABLE_RING3_TASKS is set to 1, the task will start in user
+     * mode (ring 3) and use a software interrupt to transition to kernel mode.
+     * The stack must be set up to reflect this. */
+    *pxTopOfStack = USER_DS; /* Data segment for user mode. */
+    pxTopOfStack--;
+    *pxTopOfStack = ( StackType_t ) (pxTopOfUserStack + 1); /* User mode stack pointer. */
+    pxTopOfStack--;
+
+    /* iret used to start the task pops up to here. */
+    *pxTopOfStack = portINITIAL_EFLAGS_RING3;
+    pxTopOfStack--;
+
+    /* CS */
+    *pxTopOfStack = USER_CS; /* Code segment for user mode. */
+    pxTopOfStack--;
+
+    /* First instruction in the task. */
+    *pxTopOfStack = ( StackType_t ) pxCode;
+    pxTopOfStack--;
+#else
     /* iret used to start the task pops up to here. */
     *pxTopOfStack = portINITIAL_EFLAGS;
     pxTopOfStack--;
@@ -254,6 +292,7 @@ StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
     /* First instruction in the task. */
     *pxTopOfStack = ( StackType_t ) pxCode;
     pxTopOfStack--;
+#endif /* configENABLE_RING3_TASKS */
 
     /* General purpose registers as expected by a POPA instruction. */
     *pxTopOfStack = 0xEA;
@@ -334,6 +373,8 @@ void vPortSetupIDT( void )
 
         /* Install Yield handler. */
         prvSetInterruptGate( ( uint8_t ) portAPIC_YIELD_INT_VECTOR, vPortYieldCall, portIDT_FLAGS );
+
+        prvSetInterruptGate( ( uint8_t ) portSYSCALL_INT_VECTOR, vPortSysCall, portIDT_FLAGS_RING3 );
 
     #endif /* configUSE_COMMON_INTERRUPT_ENTRY_POINT */
 
@@ -420,7 +461,14 @@ BaseType_t xPortStartScheduler( void )
     {
         ulSystemStack[ xWord ] = portSTACK_WORD;
     }
-
+#if (configENABLE_RING3_TASKS == 1)
+    /* Initialise the Global Descriptor Table (GDT). */
+    init_gdt();
+    /* Initialise the Task State Segment (TSS) to provide a stack for interrupts. */
+    init_tss( ( uint32_t ) ulTopOfSystemStack );
+    /* Load the TSS into the task register. */
+    tss_load();
+#endif /* configENABLE_RING3_TASKS */
     /* Initialise Interrupt Descriptor Table (IDT). */
     vPortSetupIDT();
 

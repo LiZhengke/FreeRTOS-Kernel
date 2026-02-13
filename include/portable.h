@@ -138,9 +138,16 @@
                                              TaskFunction_t pxCode,
                                              void * pvParameters ) PRIVILEGED_FUNCTION;
     #else
-        StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
-                                             TaskFunction_t pxCode,
-                                             void * pvParameters ) PRIVILEGED_FUNCTION;
+        #if configENABLE_RING3_TASKS != 1
+            StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack,
+                                            TaskFunction_t pxCode,
+                                            void *pvParameters)PRIVILEGED_FUNCTION;
+        #else
+            StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack,     /* Kernel mode stack */
+                                            StackType_t *pxTopOfUserStack, /* User mode stack */
+                                            TaskFunction_t pxCode,
+                                            void *pvParameters)PRIVILEGED_FUNCTION;
+        #endif /* configENABLE_RING3_TASKS */
     #endif
 #endif /* if ( portUSING_MPU_WRAPPERS == 1 ) */
 

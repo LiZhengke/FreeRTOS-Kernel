@@ -1,0 +1,15 @@
+#ifndef TSS_H
+#define TSS_H
+
+#include <stdint.h>
+#include <gdt.h>
+
+#define TSS_INDEX    5
+#define TSS_SELECTOR  (TSS_INDEX << 3)
+
+void init_tss(uint32_t kernel_stack_top);
+void tss_load(void);
+uint32_t tss_get_size(void);
+uint32_t tss_get_address(void);
+
+#endif // TSS_H

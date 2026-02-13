@@ -387,7 +387,10 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     ListItem_t xStateListItem;                  /**< The list that the state list item of a task is reference from denotes the state of that task (Ready, Blocked, Suspended ). */
     ListItem_t xEventListItem;                  /**< Used to reference a task from an event list. */
     UBaseType_t uxPriority;                     /**< The priority of the task.  0 is the lowest priority. */
-    StackType_t * pxStack;                      /**< Points to the start of the stack. */
+    StackType_t * pxStack;                      /**< Points to the start of the kernel stack. */
+    #if ( configENABLE_RING3_TASKS == 1 )
+    StackType_t * pxUserStack;                  /**< Points to the start of the user stack. */
+    #endif
     #if ( configNUMBER_OF_CORES > 1 )
         volatile BaseType_t xTaskRunState;      /**< Used to identify the core the task is running on, if the task is running. Otherwise, identifies the task's state - not running or yielding. */
         UBaseType_t uxTaskAttributes;           /**< Task's attributes - currently used to identify the idle tasks. */
@@ -1827,6 +1830,9 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                                   const MemoryRegion_t * const xRegions )
 {
     StackType_t * pxTopOfStack;
+#if configENABLE_RING3_TASKS == 1
+    StackType_t * pxTopOfUserStack;
+#endif /* configENABLE_RING3_TASKS */
     UBaseType_t x;
 
     #if ( portUSING_MPU_WRAPPERS == 1 )
@@ -1865,7 +1871,15 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         /* Check the alignment of the calculated top of stack is correct. */
         configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
+        #if configENABLE_RING3_TASKS == 1
+        {
+            pxTopOfUserStack = &( pxNewTCB->pxUserStack[ uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 ] );
+            pxTopOfUserStack = ( StackType_t * ) ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfUserStack ) & ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) );
 
+            /* Check the alignment of the calculated top of user stack is correct. */
+            configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfUserStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
+        }
+        #endif /* configENABLE_RING3_TASKS */
         #if ( configRECORD_STACK_HIGH_ADDRESS == 1 )
         {
             /* Also record the stack's high address, which may assist
@@ -1882,9 +1896,24 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         /* Check the alignment of the calculated top of stack is correct. */
         configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
 
+        #if configENABLE_RING3_TASKS == 1
+        {
+            pxTopOfUserStack = pxNewTCB->pxUserStack;
+            pxTopOfUserStack = ( StackType_t * ) ( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfUserStack ) + portBYTE_ALIGNMENT_MASK ) & ( ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) ) );
+
+            /* Check the alignment of the calculated top of user stack is correct. */
+            configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfUserStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
+        }
+        #endif /* configENABLE_RING3_TASKS */
+
         /* The other extreme of the stack space is required if stack checking is
          * performed. */
         pxNewTCB->pxEndOfStack = pxNewTCB->pxStack + ( uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 );
+        #if configENABLE_RING3_TASKS == 1
+        {
+            pxNewTCB->pxEndOfUserStack = pxNewTCB->pxUserStack + ( uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 );
+        }
+        #endif /* configENABLE_RING3_TASKS */
     }
     #endif /* portSTACK_GROWTH */
 
@@ -2011,7 +2040,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         }
         #else /* portHAS_STACK_OVERFLOW_CHECKING */
         {
-            pxNewTCB->pxTopOfStack = pxPortInitialiseStack( pxTopOfStack, pxTaskCode, pvParameters );
+            #if configENABLE_RING3_TASKS != 1
+                pxNewTCB->pxTopOfStack = pxPortInitialiseStack( pxTopOfStack, pxTaskCode, pvParameters );
+            #else
+                pxNewTCB->pxTopOfStack = pxPortInitialiseStack( pxTopOfStack, pxTopOfUserStack, pxTaskCode, pvParameters );
+            #endif
         }
         #endif /* portHAS_STACK_OVERFLOW_CHECKING */
     }
