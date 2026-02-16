@@ -1695,7 +1695,7 @@
 #endif
 
 #ifndef traceENTER_xTaskCreateStatic
-    #define traceENTER_xTaskCreateStatic( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxStackBuffer, pxTaskBuffer )
+    #define traceENTER_xTaskCreateStatic( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxKernelStackBuffer, puxUserStackBuffer, pxTaskBuffer )
 #endif
 
 #ifndef traceRETURN_xTaskCreateStatic
@@ -1703,7 +1703,7 @@
 #endif
 
 #ifndef traceENTER_xTaskCreateStaticAffinitySet
-    #define traceENTER_xTaskCreateStaticAffinitySet( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxStackBuffer, pxTaskBuffer, uxCoreAffinityMask )
+    #define traceENTER_xTaskCreateStaticAffinitySet( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxKernelStackBuffer, puxUserStackBuffer, pxTaskBuffer, uxCoreAffinityMask )
 #endif
 
 #ifndef traceRETURN_xTaskCreateStaticAffinitySet

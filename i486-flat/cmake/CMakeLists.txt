@@ -71,6 +71,7 @@ add_executable(${PROJECT_NAME}
     ${PORT_I486_FLAT_PATH}/start.S
     main.c
     stdprint.c
+    utask.c
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

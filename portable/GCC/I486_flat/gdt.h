@@ -11,4 +11,4 @@
 #define DPL_USER   3
 
 void init_gdt();
-#endif // KERNEL_GDT_H
+#endif /* KERNEL_GDT_H */

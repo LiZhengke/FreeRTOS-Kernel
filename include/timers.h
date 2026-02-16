@@ -1394,11 +1394,13 @@ BaseType_t xTimerGenericCommandFromISR( TimerHandle_t xTimer,
  * configSUPPORT_STATIC_ALLOCATION is set.  For more information see this URI: https://www.FreeRTOS.org/a00110.html#configSUPPORT_STATIC_ALLOCATION
  *
  * @param ppxTimerTaskTCBBuffer   A handle to a statically allocated TCB buffer
- * @param ppxTimerTaskStackBuffer A handle to a statically allocated Stack buffer for the idle task
+ * @param ppxTimerTaskKernelStackBuffer A handle to a statically allocated Kernel Stack buffer for the timer task
+ * @param ppxTimerTaskUserStackBuffer A handle to a statically allocated User Stack buffer for the timer task
  * @param puxTimerTaskStackSize   A pointer to the number of elements that will fit in the allocated stack buffer
  */
     void vApplicationGetTimerTaskMemory( StaticTask_t ** ppxTimerTaskTCBBuffer,
-                                         StackType_t ** ppxTimerTaskStackBuffer,
+                                         StackType_t ** ppxTimerTaskKernelStackBuffer,
+                                         StackType_t ** ppxTimerTaskUserStackBuffer,
                                          configSTACK_DEPTH_TYPE * puxTimerTaskStackSize );
 
 #endif

@@ -689,6 +689,15 @@
  * undefined. */
 #define configENABLE_RING3_TASKS               1
 
+/* Temporaly disabled  idle task for debugging */
+#define configUSE_IDLE_TASK_DISABLED           0
+
+#if configENABLE_RING3_TASKS == 1
+#define portTASK_SWITCH_HOOK( pxTCB ) \
+    if (pxTCB->xPrivilegeLevel == cpuPRIVILEGE_LEVEL_3) \
+        tss_set_esp0((uint32_t)pxTCB->pxTopOfKernelStack);
+#endif /* configENABLE_RING3_TASKS */
+
 #define INCLUDE_vTaskPrioritySet               1
 #define INCLUDE_uxTaskPriorityGet              1
 #define INCLUDE_vTaskDelete                    1

@@ -43,13 +43,17 @@
 /* Standard includes. */
 #include <stdio.h>
 #include "utils.h"
+#include "utask.h"
 /*-----------------------------------------------------------*/
 
-static void TaskMain( void * parameters ) __attribute__( ( noreturn ) );
+#if 0  /* Currently unused */
+static void TaskUser1( void * parameters ) __attribute__( ( noreturn ) );
+#endif
 
 /*-----------------------------------------------------------*/
 
-static void TaskMain( void * parameters )
+#if 0  /* Currently unused */
+static void TaskUser1( void * parameters )
 {
     unsigned long esp;
     unsigned long stack_low, stack_high;
@@ -79,32 +83,25 @@ static void TaskMain( void * parameters )
         vTaskDelay( 100 ); /* delay 100 ticks */
     }
 }
+#endif
 /*-----------------------------------------------------------*/
 
-int main( void )
+void main( void * parameters )
 {
-    static StaticTask_t exampleTaskTCB;
-    static StackType_t exampleTaskStack[ configMINIMAL_STACK_SIZE ];
+     /* Unused parameters. */
+    ( void ) parameters;
 
-    ( void ) puts( "i486 flat Project\n" );
-
-    ( void ) xTaskCreateStatic( TaskMain,
-                                "TaskMain",
-                                configMINIMAL_STACK_SIZE,
-                                NULL,
-                                configMAX_PRIORITIES - 1U,
-                                &( exampleTaskStack[ 0 ] ),
-                                &( exampleTaskTCB ) );
-
-    /* Start the scheduler. */
-    vTaskStartScheduler();
+    // ( void ) puts( "i486 flat Project main\n" );
 
     for( ; ; )
     {
-        /* Should not reach here. */
+        /* The task is just going to print out its name and delay for a fixed
+         * number of ticks. */
+        // printf( "Main task is running. esp=%p\n", ( void * ) get_esp() );
+        uSysDelay( 100 ); /* delay 100 ticks */
     }
 
-    return 0;
+    return;
 }
 /*-----------------------------------------------------------*/
 
@@ -127,7 +124,7 @@ int main( void )
         /* This function will be called by each tick interrupt if
          * configUSE_TICK_HOOK is set to 1 in FreeRTOSConfig.h. */
         TickType_t tickCount = xTaskGetTickCount();
-        if( tickCount % 10 == 0 )  /* Print every 10 ticks. */
+        if( tickCount % 100 == 0 )  /* Print every 100 ticks. */
         {
             printf( "Tick Hook: %lu esp=%p\n", ( unsigned long ) tickCount, ( void * ) get_esp() );
         }

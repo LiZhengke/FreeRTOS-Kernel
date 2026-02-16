@@ -237,7 +237,6 @@
     BaseType_t xTimerCreateTimerTask( void )
     {
         BaseType_t xReturn = pdFAIL;
-
         traceENTER_xTimerCreateTimerTask();
 
         /* This function is called when the scheduler is started if
@@ -288,16 +287,19 @@
                 #if ( configSUPPORT_STATIC_ALLOCATION == 1 )
                 {
                     StaticTask_t * pxTimerTaskTCBBuffer = NULL;
-                    StackType_t * pxTimerTaskStackBuffer = NULL;
+                    StackType_t * pxTimerTaskKernelStackBuffer = NULL;
+                    StackType_t * pxTimerTaskUserStackBuffer = NULL;
                     configSTACK_DEPTH_TYPE uxTimerTaskStackSize;
 
-                    vApplicationGetTimerTaskMemory( &pxTimerTaskTCBBuffer, &pxTimerTaskStackBuffer, &uxTimerTaskStackSize );
+                    vApplicationGetTimerTaskMemory( &pxTimerTaskTCBBuffer, &pxTimerTaskKernelStackBuffer, &pxTimerTaskUserStackBuffer, &uxTimerTaskStackSize );
                     xTimerTaskHandle = xTaskCreateStatic( &prvTimerTask,
                                                           configTIMER_SERVICE_TASK_NAME,
                                                           uxTimerTaskStackSize,
                                                           NULL,
                                                           ( ( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,
-                                                          pxTimerTaskStackBuffer,
+                                                          pxTimerTaskKernelStackBuffer,
+                                                          pxTimerTaskUserStackBuffer,
+                                                          cpuPRIVILEGE_LEVEL_0,
                                                           pxTimerTaskTCBBuffer );
 
                     if( xTimerTaskHandle != NULL )
@@ -326,7 +328,6 @@
         configASSERT( xReturn );
 
         traceRETURN_xTimerCreateTimerTask( xReturn );
-
         return xReturn;
     }
 /*-----------------------------------------------------------*/

@@ -11,5 +11,5 @@ void init_tss(uint32_t kernel_stack_top);
 void tss_load(void);
 uint32_t tss_get_size(void);
 uint32_t tss_get_address(void);
-
-#endif // TSS_H
+void tss_set_esp0(uint32_t esp0);
+#endif /* TSS_H */

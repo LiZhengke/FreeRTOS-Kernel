@@ -122,6 +122,15 @@ typedef enum
     eSetValueWithoutOverwrite /* Set the task's notification value if the previous value has been read by the task. */
 } eNotifyAction;
 
+/* CPU privilege levels. */
+typedef enum cpu_privilege_level
+{
+    cpuPRIVILEGE_LEVEL_0 = 0, /* Highest privilege level. */
+    cpuPRIVILEGE_LEVEL_1,
+    cpuPRIVILEGE_LEVEL_2,
+    cpuPRIVILEGE_LEVEL_3 /* Lowest privilege level. */
+} cpu_privilege_level_t;
+
 /*
  * Used internally only.
  */
@@ -387,6 +396,7 @@ typedef enum
                             const configSTACK_DEPTH_TYPE uxStackDepth,
                             void * const pvParameters,
                             UBaseType_t uxPriority,
+                            cpu_privilege_level_t xPrivilegeLevel,
                             TaskHandle_t * const pxCreatedTask ) PRIVILEGED_FUNCTION;
 #endif
 
@@ -514,7 +524,9 @@ typedef enum
                                     const configSTACK_DEPTH_TYPE uxStackDepth,
                                     void * const pvParameters,
                                     UBaseType_t uxPriority,
-                                    StackType_t * const puxStackBuffer,
+                                    StackType_t * const puxKernelStackBuffer,
+                                    StackType_t * const puxUserStackBuffer,
+                                    cpu_privilege_level_t xPrivilegeLevel,
                                     StaticTask_t * const pxTaskBuffer ) PRIVILEGED_FUNCTION;
 #endif /* configSUPPORT_STATIC_ALLOCATION */
 
@@ -524,7 +536,8 @@ typedef enum
                                                const configSTACK_DEPTH_TYPE uxStackDepth,
                                                void * const pvParameters,
                                                UBaseType_t uxPriority,
-                                               StackType_t * const puxStackBuffer,
+                                               StackType_t * const puxKernelStackBuffer,
+                                               StackType_t * const puxUserStackBuffer,
                                                StaticTask_t * const pxTaskBuffer,
                                                UBaseType_t uxCoreAffinityMask ) PRIVILEGED_FUNCTION;
 #endif
@@ -1999,11 +2012,13 @@ char * pcTaskGetName( TaskHandle_t xTaskToQuery ) PRIVILEGED_FUNCTION;
  * configSUPPORT_STATIC_ALLOCATION is set.  For more information see this URI: https://www.FreeRTOS.org/a00110.html#configSUPPORT_STATIC_ALLOCATION
  *
  * @param ppxIdleTaskTCBBuffer A handle to a statically allocated TCB buffer
- * @param ppxIdleTaskStackBuffer A handle to a statically allocated Stack buffer for the idle task
+ * @param ppxIdleTaskKernelStackBuffer A handle to a statically allocated Kernel Stack buffer for the idle task
+ * @param ppxIdleTaskUserStackBuffer A handle to a statically allocated User Stack buffer for the idle task
  * @param puxIdleTaskStackSize A pointer to the number of elements that will fit in the allocated stack buffer
  */
     void vApplicationGetIdleTaskMemory( StaticTask_t ** ppxIdleTaskTCBBuffer,
-                                        StackType_t ** ppxIdleTaskStackBuffer,
+                                        StackType_t ** ppxIdleTaskKernelStackBuffer,
+                                        StackType_t ** ppxIdleTaskUserStackBuffer,
                                         configSTACK_DEPTH_TYPE * puxIdleTaskStackSize );
 
 /**

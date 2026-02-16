@@ -29,6 +29,8 @@
 .file "portASM.S"
 #include "FreeRTOSConfig.h"
 #include "ISR_Support.h"
+    /*.include "asm_macros.inc"*/
+#include "asm_macros.h"
 
     .extern pxCurrentTCB
     .extern vTaskSwitchContext
@@ -37,6 +39,7 @@
     .extern vPortAPICErrorHandler
     .extern pucPortTaskFPUContextBuffer
     .extern ulPortYieldPending
+    .extern ulSysCallDispatch
 
     .global vPortStartFirstTask
     .global vPortCentralInterruptWrapper
@@ -56,7 +59,53 @@
 .func vPortYieldCall
 vPortYieldCall:
     /* Save general purpose registers. */
-    pusha
+    pushal
+
+    # Save segment registers (required to preserve segment state across handler)
+    PUSH_SEGS()
+
+     /*
+    * Stack layout at this point (ESP → increases downward as we push):
+    * After pusha and PUSH_SEGS()():
+    *   +-----------------+
+    *   | GS              | ← ESP + 0
+    *   +-----------------+
+    *   | FS              | ← ESP + 4
+    *   +-----------------+
+    *   | ES              | ← ESP + 8
+    *   +-----------------+
+    *   | DS              | ← ESP + 12
+    *   +-----------------+
+    *   | EDI             | ← ESP + 16
+    *   +-----------------+
+    *   | ESI             | ← ESP + 20
+    *   +-----------------+
+    *   | EBP             | ← ESP + 24
+    *   +-----------------+
+    *   | ESP (original)  | ← ESP + 28
+    *   +-----------------+
+    *   | EBX             | ← ESP + 32
+    *   +-----------------+
+    *   | EDX             | ← ESP + 36
+    *   +-----------------+
+    *   | ECX             | ← ESP + 40
+    *   +-----------------+
+    *   | EAX             | ← ESP + 44
+    *   +-----------------+
+    * Hardware-pushed interrupt frame:
+    *   | EIP (return)    | ← ESP + 48
+    *   +-----------------+
+    *   | CS              | ← ESP + 52
+    *   +-----------------+
+    *   | EFLAGS          | ← ESP + 56
+    *   +-----------------+
+    *   | ESP (user)      | ← ESP + 60 (only if ring change)
+    *   +-----------------+
+    *   | SS (user)       | ← ESP + 64 (only if ring change)
+    *   +-----------------+
+    */
+
+     /* Set the yield pending flag. */
 
     .if configSUPPORT_FPU == 1
 
@@ -81,6 +130,11 @@ vPortYieldCall:
     /* Stack location is first item in the TCB. */
     movl    %esp, (%eax)
 
+    movl    52(%esp), %ecx       # 52 = pushal(32) + eip(4) + cs offset
+    and     $3, %ecx
+incorrect_cpu_level:
+    test    %ecx, %ecx
+    jnz     incorrect_cpu_level
     call vTaskSwitchContext
 
     /* Find the location of pxCurrentTCB again - a callee saved register could
@@ -103,7 +157,10 @@ vPortYieldCall:
         1:
     .endif
 
-    popa
+    # Restore segment registers (pop in reverse order of push: GS, FS, ES, DS)
+    POP_SEGS()
+
+    popal
     iret
 
 .endfunc
@@ -126,8 +183,9 @@ vPortStartFirstTask:
 
     .endif /* configSUPPORT_FPU */
 
-    /* Restore general purpose registers. */
-    popa
+    POP_SEGS()
+
+    popal
     iret
 .endfunc
 /*-----------------------------------------------------------*/
@@ -137,7 +195,7 @@ vPortStartFirstTask:
 vPortAPICErrorHandlerWrapper:
     pusha
     call    vPortAPICErrorHandler
-    popa
+    popal
     /* EOI. */
     movl    $0x00, (0xFEE000B0)
     iret
@@ -147,11 +205,51 @@ vPortAPICErrorHandlerWrapper:
 .align 4
 .func vPortTimerHandler
 vPortTimerHandler:
-
     /* Save general purpose registers. */
-    pusha
+    pushal
+    PUSH_SEGS()
 
-    /* Interrupts are not nested, so save the rest of the task context. */
+    /*
+    * Stack layout at this point (ESP → increases downward as we push):
+    * After pusha and PUSH_SEGS()():
+    *   +-----------------+
+    *   | GS              | ← ESP + 0
+    *   +-----------------+
+    *   | FS              | ← ESP + 4
+    *   +-----------------+
+    *   | ES              | ← ESP + 8
+    *   +-----------------+
+    *   | DS              | ← ESP + 12
+    *   +-----------------+
+    *   | EDI             | ← ESP + 16
+    *   +-----------------+
+    *   | ESI             | ← ESP + 20
+    *   +-----------------+
+    *   | EBP             | ← ESP + 24
+    *   +-----------------+
+    *   | ESP (original)  | ← ESP + 28
+    *   +-----------------+
+    *   | EBX             | ← ESP + 32
+    *   +-----------------+
+    *   | EDX             | ← ESP + 36
+    *   +-----------------+
+    *   | ECX             | ← ESP + 40
+    *   +-----------------+
+    *   | EAX             | ← ESP + 44
+    *   +-----------------+
+    * Hardware-pushed interrupt frame:
+    *   | EIP (return)    | ← ESP + 48
+    *   +-----------------+
+    *   | CS              | ← ESP + 52
+    *   +-----------------+
+    *   | EFLAGS          | ← ESP + 56
+    *   +-----------------+
+    *   | ESP (user)      | ← ESP + 60 (only if ring change)
+    *   +-----------------+
+    *   | SS (user)       | ← ESP + 64 (only if ring change)
+    *   +-----------------+
+     */
+      /* Interrupts are not nested, so save the rest of the task context. */
     .if configSUPPORT_FPU == 1
 
         /* If the task has a buffer allocated to save the FPU context then save the
@@ -174,12 +272,19 @@ vPortTimerHandler:
     /* Stack location is first item in the TCB. */
     movl    %esp, (%eax)
 
-    /* Switch stacks. */
-    movl    ulTopOfSystemStack, %esp
+    movl    52(%esp), %ecx       # 52 = pushal(32) + eip(4) + cs offset
+    and     $3, %ecx
+    test    %ecx, %ecx
+    jne     already_on_kernel_stack
+
+    movl    pxCurrentTCB, %eax
+    movl    4(%eax), %esp        # pxKernelStackTop
     movl    %esp, %ebp
 
+already_on_kernel_stack:
+
     /* Increment nesting count. */
-    add     $1, ulInterruptNesting
+    addl    $1, ulInterruptNesting
 
     call    xTaskIncrementTick
 
@@ -196,7 +301,7 @@ _skip_context_switch:
 
     /* Decrement the variable used to determine if a switch to a system
     stack is necessary. */
-    sub     $1, ulInterruptNesting
+    subl    $1, ulInterruptNesting
 
     /* Stack location is first item in the TCB. */
     movl    pxCurrentTCB, %eax
@@ -216,6 +321,7 @@ _skip_context_switch:
         1:
     .endif
 
+    POP_SEGS()
     popa
 
     .if configUSE_APIC == 1
@@ -279,14 +385,40 @@ vPortAPICSpuriousHandler:
 .if configENABLE_RING3_TASKS == 1
 
     .align 4
-    .func syscall_entry
-    syscall_entry:
+    .func vPortSysCall
+    vPortSysCall:
         cli
-        push    %ds
-        push    %es
-        push    %fs
-        push    %gs
         pushal
+        PUSH_SEGS()
+
+         /*
+         * Stack layout at this point (ESP → increases downward as we push):
+         *   +-----------------+
+         *   | GS              | ← ESP + 32 (top of stack after pushal)
+         *   +-----------------+
+         *   | FS              | ← ESP + 28
+         *   +-----------------+
+         *   | ES              | ← ESP + 24
+         *   +-----------------+
+         *   | DS              | ← ESP + 20
+         *   +-----------------+
+         *   | EDI             | ← ESP + 16
+         *   +-----------------+
+         *   | ESI             | ← ESP + 12
+         *   +-----------------+
+         *   | EBP             | ← ESP + 8
+         *   +-----------------+
+         *   | ESP (original)  | ← ESP + 4
+         *   +-----------------+
+         *   | EBX             | ← ESP (current value after pushal)
+         *   +-----------------+
+         *   | EDX             |
+         *   +-----------------+
+         *   | ECX             |
+         *   +-----------------+
+         *   | EAX             |
+         *   +-----------------+ (ESP points here)
+          */
 
         mov     $0x10, %ax              /* KERNEL_DS 0x10 */
         mov     %ax, %ds
@@ -295,23 +427,44 @@ vPortAPICSpuriousHandler:
         mov     %ax, %gs
 
         /* pushl %esp */                /* Parameter: regs_t * */
-        call    syscall_dispatch
+        call    uSysCallDispatch
         /* addl $4, %esp */
 
+        POP_SEGS()
+
+         /*
+         * Stack layout at this point (ESP → increases downward as we push):
+         *   +-----------------+
+         *   | GS              | ← ESP + 32 (top of stack after pushal)
+         *   +-----------------+
+         *   | FS              | ← ESP + 28
+         *   +-----------------+
+         *   | ES              | ← ESP + 24
+         *   +-----------------+
+         *   | DS              | ← ESP + 20
+         *   +-----------------+
+         *   | EDI             | ← ESP + 16
+         *   +-----------------+
+         *   | ESI             | ← ESP + 12
+         *   +-----------------+
+         *   | EBP             | ← ESP + 8
+         *   +-----------------+
+         *   | ESP (original)  | ← ESP + 4
+         *   +-----------------+
+         *   | EBX             | ← ESP (current value after pushal)
+         *   +-----------------+
+         *   | EDX             |
+         *   +-----------------+
+         *   | ECX             |
+         *   +-----------------+
+         *   | EAX             |
+         *   +-----------------+ (ESP points here)
+          */
         popal
-        pop     %gs
-        pop     %fs
-        pop     %es
-        pop     %ds
+
 
         sti
         iret
-    .endfunc
-
-    .align 4
-    .func vPortSysCall
-    vPortSysCall:
-        jmp syscall_entry
     .endfunc
 
 .endif /* configENABLE_RING3_TASKS */

@@ -143,9 +143,9 @@
                                             TaskFunction_t pxCode,
                                             void *pvParameters)PRIVILEGED_FUNCTION;
         #else
-            StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack,     /* Kernel mode stack */
-                                            StackType_t *pxTopOfUserStack, /* User mode stack */
+            StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack,     /* stack */
                                             TaskFunction_t pxCode,
+                                            uint32_t xPrivilegeLevel,
                                             void *pvParameters)PRIVILEGED_FUNCTION;
         #endif /* configENABLE_RING3_TASKS */
     #endif

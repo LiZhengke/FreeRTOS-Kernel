@@ -3,6 +3,14 @@
 
 #include <stdint.h>
 #include "os_helper.h"
+#define SYSINT portSYSCALL_INT_VECTOR
+#define STR2(x) #x
+#define STR(x) STR2(x)
+
+#define ENOSYS   38   // syscall 不存在
+#define EINVAL   22   // 参数非法
+#define EPERM     1   // 权限不足
+
 enum {
     SYS_YIELD = 0,
     SYS_DELAY,

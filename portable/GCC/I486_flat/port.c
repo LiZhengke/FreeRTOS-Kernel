@@ -28,6 +28,7 @@
 
 /* Standard includes. */
 #include <limits.h>
+#include <stdio.h>
 
 /* Scheduler includes. */
 #include "FreeRTOS.h"
@@ -37,8 +38,6 @@
 #include "i8259.h"
 #include "tss.h"
 
-#define STR(x) #x
-#define XSTR(x) STR(x)
 
 _Static_assert(sizeof(void*) == 4, "ERROR: pointer is not 32-bit");
 
@@ -92,9 +91,12 @@ uint8_t ucHeap[1] __attribute__((section(".heap")));
  * is set correctly. */
 #define portEXPECTED_IDT_ENTRY_SIZE      8
 
-/* Default flags setting for entries in the IDT. */
+/* Default flags setting for entries in the IDT.
+ * 0x8E = Present, DPL=0 (ring 0), 32-bit interrupt gate */
 #define portIDT_FLAGS                    ( 0x8E )
-/* */
+
+/* IDT flags for ring 3 (user mode) accessible interrupts.
+ * 0xEE = Present, DPL=3 (ring 3), 32-bit interrupt gate */
 #define portIDT_FLAGS_RING3              ( 0xEE )
 
 /* This is the lowest possible ISR vector available to application code. */
@@ -206,6 +208,11 @@ static ISR_Handler_t xInterruptHandlerTable[ portNUM_VECTORS ] = { NULL };
     uint8_t * pucPortTaskFPUContextBuffer __attribute__( ( used ) ) = pdFALSE;
 
 #endif /* configSUPPORT_FPU */
+/* Stack used during task initialization. */
+static uint32_t ulTaskInitStack[ configISR_STACK_SIZE ] __attribute__( ( used ) ) = { 0 };
+
+/* Points to the top of the task initialization stack. */
+volatile uint32_t ulTopOfTaskInitStack __attribute__( ( used ) );
 
 /* The stack used by interrupt handlers. */
 static uint32_t ulSystemStack[ configISR_STACK_SIZE ] __attribute__( ( used ) ) = { 0 };
@@ -234,15 +241,13 @@ StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
                                      TaskFunction_t pxCode,
                                      void * pvParameters )
 #else
-StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack, /* Kernel mode stack */
-                                     StackType_t * pxTopOfUserStack, /* User mode stack */
+StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack, /* stack */
                                      TaskFunction_t pxCode,
+                                     uint32_t uPrivilegeLevel,
                                      void * pvParameters )
 #endif /* configENABLE_RING3_TASKS */
 {
-#if configENABLE_RING3_TASKS != 1
     uint32_t ulCodeSegment;
-#endif
 
     /* Setup the initial stack as expected by the portFREERTOS_INTERRUPT_EXIT macro. */
     *pxTopOfStack = 0x00;
@@ -260,38 +265,46 @@ StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack, /* Kernel mode 
     pxTopOfStack--;
 
 #if configENABLE_RING3_TASKS == 1
-    /* When configENABLE_RING3_TASKS is set to 1, the task will start in user
-     * mode (ring 3) and use a software interrupt to transition to kernel mode.
-     * The stack must be set up to reflect this. */
-    *pxTopOfStack = USER_DS; /* Data segment for user mode. */
-    pxTopOfStack--;
-    *pxTopOfStack = ( StackType_t ) (pxTopOfUserStack + 1); /* User mode stack pointer. */
-    pxTopOfStack--;
+    if( uPrivilegeLevel == cpuPRIVILEGE_LEVEL_3 ){
+        StackType_t *pxTopOfUserStack = pxTopOfStack;
+        /* When configENABLE_RING3_TASKS is set to 1, the task will start in user
+        * mode (ring 3) and use a software interrupt to transition to kernel mode.
+        * The stack must be set up to reflect this. */
+        *pxTopOfStack = USER_DS; /* Data segment for user mode. */
+        pxTopOfStack--;
+        *pxTopOfStack = ( StackType_t ) (pxTopOfUserStack + 1); /* User mode stack pointer. */
+        pxTopOfStack--;
 
-    /* iret used to start the task pops up to here. */
-    *pxTopOfStack = portINITIAL_EFLAGS_RING3;
-    pxTopOfStack--;
+        /* iret used to start the task pops up to here. */
+        *pxTopOfStack = portINITIAL_EFLAGS_RING3;
+        pxTopOfStack--;
 
-    /* CS */
-    *pxTopOfStack = USER_CS; /* Code segment for user mode. */
-    pxTopOfStack--;
+        /* CS */
+        *pxTopOfStack = USER_CS; /* Code segment for user mode. */
+        pxTopOfStack--;
 
-    /* First instruction in the task. */
-    *pxTopOfStack = ( StackType_t ) pxCode;
-    pxTopOfStack--;
-#else
-    /* iret used to start the task pops up to here. */
-    *pxTopOfStack = portINITIAL_EFLAGS;
-    pxTopOfStack--;
+        /* First instruction in the task. */
+        *pxTopOfStack = ( StackType_t ) pxCode;
+        pxTopOfStack--;
 
-    /* CS */
-    __asm volatile ( "movl %%cs, %0" : "=r" ( ulCodeSegment ) );
-    *pxTopOfStack = ulCodeSegment;
-    pxTopOfStack--;
+    } else {
+        /* When configENABLE_RING3_TASKS is set to 1, but the task is configured to start in kernel mode (ring 0), the stack is set up as normal. */
+#endif
+        /* iret used to start the task pops up to here. */
+        *pxTopOfStack = portINITIAL_EFLAGS;
+        pxTopOfStack--;
 
-    /* First instruction in the task. */
-    *pxTopOfStack = ( StackType_t ) pxCode;
-    pxTopOfStack--;
+        /* CS */
+        __asm volatile ( "movl %%cs, %0" : "=r" ( ulCodeSegment ) );
+        *pxTopOfStack = ulCodeSegment;
+        pxTopOfStack--;
+
+        /* First instruction in the task. */
+        *pxTopOfStack = ( StackType_t ) pxCode;
+        pxTopOfStack--;
+
+#if configENABLE_RING3_TASKS == 1
+  }
 #endif /* configENABLE_RING3_TASKS */
 
     /* General purpose registers as expected by a POPA instruction. */
@@ -317,7 +330,37 @@ StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack, /* Kernel mode 
     pxTopOfStack--;
 
     *pxTopOfStack = 0xeeeeeeee; /* EDI */
+    pxTopOfStack--;
 
+#if configENABLE_RING3_TASKS == 1
+    if( uPrivilegeLevel == cpuPRIVILEGE_LEVEL_3 ){
+        *pxTopOfStack = USER_DS; /* DS */
+        pxTopOfStack--;
+
+        *pxTopOfStack = USER_DS; /* ES */
+        pxTopOfStack--;
+
+        *pxTopOfStack = USER_DS; /* FS */
+        pxTopOfStack--;
+
+        *pxTopOfStack = USER_DS; /* GS */
+    } else {
+        /* When configENABLE_RING3_TASKS is set to 1, but the task is configured to start in kernel mode (ring 0), the stack is set up as normal. */
+#endif
+
+        *pxTopOfStack = KERNEL_DS; /* DS */
+        pxTopOfStack--;
+
+        *pxTopOfStack = KERNEL_DS; /* ES */
+        pxTopOfStack--;
+
+        *pxTopOfStack = KERNEL_DS; /* FS */
+        pxTopOfStack--;
+
+        *pxTopOfStack = KERNEL_DS; /* GS */
+#if configENABLE_RING3_TASKS == 1
+  }
+#endif /* configENABLE_RING3_TASKS */
     #if ( configSUPPORT_FPU == 1 )
     {
         pxTopOfStack--;
@@ -368,6 +411,14 @@ void vPortSetupIDT( void )
     }
     #else
         (void) ulNum;
+
+        extern void exc0(); // 除零异常
+        extern void exc13(); // 通用保护异常 (GPF)
+        extern void exc8();
+
+        prvSetInterruptGate(0, (ISR_Handler_t)exc0, portIDT_FLAGS);
+        prvSetInterruptGate(8, (ISR_Handler_t)exc8, portIDT_FLAGS);
+        prvSetInterruptGate(13, (ISR_Handler_t)exc13, portIDT_FLAGS);
         /* Install timer handler.  */
         prvSetInterruptGate( ( uint8_t ) portAPIC_TIMER_INT_VECTOR, vPortTimerHandler, portIDT_FLAGS );
 
@@ -454,6 +505,9 @@ BaseType_t xPortStartScheduler( void )
     ulTopOfSystemStack =
     (uint32_t)&(ulSystemStack[ configISR_STACK_SIZE - 5 ]);
 
+    ulTopOfTaskInitStack =
+    (uint32_t)&(ulTaskInitStack[ configISR_STACK_SIZE - 5 ]);
+
     /* Fill part of the system stack with a known value to help detect stack
      * overflow.  A few zeros are left so GDB doesn't get confused unwinding
      * the stack. */
@@ -465,7 +519,7 @@ BaseType_t xPortStartScheduler( void )
     /* Initialise the Global Descriptor Table (GDT). */
     init_gdt();
     /* Initialise the Task State Segment (TSS) to provide a stack for interrupts. */
-    init_tss( ( uint32_t ) ulTopOfSystemStack );
+    init_tss( ( uint32_t ) ulTopOfTaskInitStack);
     /* Load the TSS into the task register. */
     tss_load();
 #endif /* configENABLE_RING3_TASKS */
@@ -484,6 +538,8 @@ BaseType_t xPortStartScheduler( void )
 
     /* Make sure the stack used by interrupts is aligned. */
     ulTopOfSystemStack &= ~portBYTE_ALIGNMENT_MASK;
+
+    ulTopOfTaskInitStack &= ~portBYTE_ALIGNMENT_MASK;
 
     ulCriticalNesting = 0;
 
@@ -784,7 +840,30 @@ void *memcpy(void *dest, const void *src, size_t n)
     return dest;
 }
 
-void putchar(char c)
+int putchar(int c)
 {
-    outb(0x3F8, c);   // COM1 port
+    outb(0x3F8, (char)c);   // COM1 port
+    return c;
+}
+
+void vStartMainTask( void )
+{
+    static StaticTask_t mainTaskTCB;
+    static StackType_t mainKernelStack[ configMINIMAL_STACK_SIZE ];
+    static StackType_t mainUserStack[ configMINIMAL_STACK_SIZE ];
+    ( void ) puts( "vStartMainTask\n" );
+
+    extern void main( void * parameters );
+    ( void ) xTaskCreateStatic( main,
+                                "Main",
+                                configMINIMAL_STACK_SIZE,
+                                NULL,
+                                configMAX_PRIORITIES - 1U,
+                                &( mainKernelStack[ 0 ] ),
+                                &( mainUserStack[ 0 ] ),
+                                cpuPRIVILEGE_LEVEL_3,
+                                &( mainTaskTCB ) );
+
+    /* Start the scheduler. */
+    vTaskStartScheduler();
 }

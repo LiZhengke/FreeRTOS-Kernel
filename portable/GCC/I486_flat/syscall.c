@@ -20,7 +20,7 @@ syscall_t syscall_table[SYS_MAX] = {
     sys_task_create
 };
 
-int syscall_dispatch(void)
+int uSysCallDispatch(void)
 {
     uint32_t num, a0, a1, a2, a3, a4;
 
@@ -120,6 +120,7 @@ int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
     // TODO: Implement task creation using FreeRTOS xTaskCreate
     static StaticTask_t taskTCB;
     static StackType_t taskKernelStack[ configMINIMAL_STACK_SIZE ];
+    static StackType_t taskUserStack[ configMINIMAL_STACK_SIZE ];
 
     TaskFunction_t taskFunction = (TaskFunction_t)a0;
     const char *taskName = (const char *)a1;
@@ -132,6 +133,38 @@ int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
                                 NULL,
                                 priority,
                                 &( taskKernelStack[ 0 ] ),
+                                &( taskUserStack[ 0 ] ),
+                                cpuPRIVILEGE_LEVEL_3,
                                 &( taskTCB ) );
     return handle ? 0 : -EINVAL;
+}
+
+/*--------------------------------------------------------------------- */
+/* User-space syscall wrappers. These functions can be called by user tasks to
+ * invoke system calls.
+ *--------------------------------------------------------------------- */
+int32_t uSysPutChar(char c)
+{
+    int32_t ret;
+    asm volatile (
+        "int $" STR(SYSINT)
+        : "=a"(ret)
+        : "a"(SYS_PUTC),   // eax: syscall number
+          "b"(c)           // ebx: argument
+        : "memory"
+    );
+    return ret;
+}
+
+int32_t uSysDelay(uint16_t ticks)
+{
+    int32_t ret;
+    asm volatile (
+        "int $" STR(SYSINT)
+        : "=a"(ret)
+        : "a"(SYS_DELAY),   // eax: syscall number
+          "b"(ticks)        // ebx: argument
+        : "memory"
+    );
+    return ret;
 }
