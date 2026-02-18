@@ -105,6 +105,7 @@ uint8_t ucHeap[1] __attribute__((section(".heap")));
 /* If configASSERT() is defined then the system stack is filled with this value
  * to allow for a crude stack overflow check. */
 #define portSTACK_WORD                   ( 0xecececec )
+
 /*-----------------------------------------------------------*/
 
 /*
@@ -412,15 +413,15 @@ void vPortSetupIDT( void )
     #else
         (void) ulNum;
 
-        extern void exc0(); // 除零异常
-        extern void exc13(); // 通用保护异常 (GPF)
+        extern void exc0(); // Division by zero exception
+        extern void exc13(); // General Protection Fault (GPF)
         extern void exc8();
 
         prvSetInterruptGate(0, (ISR_Handler_t)exc0, portIDT_FLAGS);
         prvSetInterruptGate(8, (ISR_Handler_t)exc8, portIDT_FLAGS);
         prvSetInterruptGate(13, (ISR_Handler_t)exc13, portIDT_FLAGS);
         /* Install timer handler.  */
-        prvSetInterruptGate( ( uint8_t ) portAPIC_TIMER_INT_VECTOR, vPortTimerHandler, portIDT_FLAGS );
+        // prvSetInterruptGate( ( uint8_t ) portAPIC_TIMER_INT_VECTOR, vPortTimerHandler, portIDT_FLAGS );
 
         /* Install Yield handler. */
         prvSetInterruptGate( ( uint8_t ) portAPIC_YIELD_INT_VECTOR, vPortYieldCall, portIDT_FLAGS );
@@ -502,6 +503,8 @@ BaseType_t xPortStartScheduler( void )
      * for packing to work. */
     configASSERT( sizeof( struct IDTEntry ) == portEXPECTED_IDT_ENTRY_SIZE );
 
+    (void) xWord;
+#if (configENABLE_RING3_TASKS == 0)
     ulTopOfSystemStack =
     (uint32_t)&(ulSystemStack[ configISR_STACK_SIZE - 5 ]);
 
@@ -515,11 +518,12 @@ BaseType_t xPortStartScheduler( void )
     {
         ulSystemStack[ xWord ] = portSTACK_WORD;
     }
+#endif /* configENABLE_RING3_TASKS == 0 */
+
 #if (configENABLE_RING3_TASKS == 1)
     /* Initialise the Global Descriptor Table (GDT). */
     init_gdt();
-    /* Initialise the Task State Segment (TSS) to provide a stack for interrupts. */
-    init_tss( ( uint32_t ) ulTopOfTaskInitStack);
+
     /* Load the TSS into the task register. */
     tss_load();
 #endif /* configENABLE_RING3_TASKS */
@@ -853,7 +857,10 @@ void vStartMainTask( void )
     static StackType_t mainUserStack[ configMINIMAL_STACK_SIZE ];
     ( void ) puts( "vStartMainTask\n" );
 
+    /* Initialise the Task State Segment (TSS) to provide a stack for interrupts. */
+    init_tss( 0 );
     extern void main( void * parameters );
+
     ( void ) xTaskCreateStatic( main,
                                 "Main",
                                 configMINIMAL_STACK_SIZE,

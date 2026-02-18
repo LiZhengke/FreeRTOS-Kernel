@@ -2,14 +2,15 @@
 #define __ASM_MACROS_H__
 
 /* -----------------------------
- * 段寄存器
+
+ * Segment registers
  * ----------------------------- */
 #define KERNEL_CS 0x08
 #define KERNEL_DS 0x10
 
-/* -----------------------------
- * 保存通用寄存器
- * 适用于 486 (无 SSE)
+/* -------------------------
+ * Save general purpose registers
+ * For 486 (no SSE)
  * ----------------------------- */
 #define PUSH_GPRS()        \
     pushl %eax;            \
@@ -30,8 +31,8 @@
     popl %eax
 
 /* -----------------------------
- * 保存段寄存器
- * 486 上必须显式保存
+ * Save segment registers
+ * Must be explicitly saved on 486
  * ----------------------------- */
 #define PUSH_SEGS()        \
     pushl %ds;             \
@@ -45,8 +46,8 @@
     popl %es;              \
     popl %ds
 
-/* -----------------------------
- * 完整上下文
+/* -------------------------
+ * Complete context
  * ----------------------------- */
 #define SAVE_CONTEXT()     \
     PUSH_SEGS();           \

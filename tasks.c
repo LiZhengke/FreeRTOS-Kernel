@@ -119,6 +119,7 @@
  * is used purely for checking the high water mark for tasks.
  */
 #define tskSTACK_FILL_BYTE                        ( 0xa5U )
+#define tskKERNEL_STACK_FILL_BYTE                 ( 0xb6U )
 
 /* Bits used to record how a task's stack and TCB were allocated. */
 #define tskDYNAMICALLY_ALLOCATED_STACK_AND_TCB    ( ( uint8_t ) 0 )
@@ -1858,9 +1859,6 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                                   const MemoryRegion_t * const xRegions )
 {
     StackType_t * pxTopOfStack;
-#if configENABLE_RING3_TASKS == 1
-    StackType_t * pxTopOfKernelStack;
-#endif /* configENABLE_RING3_TASKS */
     UBaseType_t x;
 
     #if ( portUSING_MPU_WRAPPERS == 1 )
@@ -1883,6 +1881,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     {
         /* Fill the stack with a known value to assist debugging. */
         ( void ) memset( pxNewTCB->pxStack, ( int ) tskSTACK_FILL_BYTE, ( size_t ) uxStackDepth * sizeof( StackType_t ) );
+        ( void ) memset( pxNewTCB->pxKernelStack, ( int ) tskKERNEL_STACK_FILL_BYTE, ( size_t ) uxStackDepth * sizeof( StackType_t ) );
     }
     #endif /* tskSET_NEW_STACKS_TO_KNOWN_VALUE */
 
@@ -1901,11 +1900,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
         #if configENABLE_RING3_TASKS == 1
         {
-            pxTopOfKernelStack = &( pxNewTCB->pxKernelStack[ uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 ] );
-            pxTopOfKernelStack = ( StackType_t * ) ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfKernelStack ) & ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) );
+            pxNewTCB->pxTopOfKernelStack = &( pxNewTCB->pxKernelStack[ uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 ] );
+            pxNewTCB->pxTopOfKernelStack = ( StackType_t * ) ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxTopOfKernelStack ) & ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) );
 
             /* Check the alignment of the calculated top of kernel stack is correct. */
-            configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfKernelStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
+            configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxTopOfKernelStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
         }
         #endif /* configENABLE_RING3_TASKS */
         #if ( configRECORD_STACK_HIGH_ADDRESS == 1 )
@@ -1915,7 +1914,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             pxNewTCB->pxEndOfStack = pxTopOfStack;
             #if configENABLE_RING3_TASKS == 1
             {
-                pxNewTCB->pxEndOfKernelStack = pxTopOfKernelStack;
+                pxNewTCB->pxEndOfKernelStack = pxNewTCB->pxTopOfKernelStack;
             }
             #endif /* configENABLE_RING3_TASKS */
         }
@@ -1931,11 +1930,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         #if configENABLE_RING3_TASKS == 1
         {
-            pxTopOfKernelStack = pxNewTCB->pxKernelStack;
-            pxTopOfKernelStack = ( StackType_t * ) ( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfKernelStack ) + portBYTE_ALIGNMENT_MASK ) & ( ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) ) );
+            pxNewTCB->pxTopOfKernelStack = pxNewTCB->pxKernelStack;
+            pxNewTCB->pxTopOfKernelStack = ( StackType_t * ) ( ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxTopOfKernelStack ) + portBYTE_ALIGNMENT_MASK ) & ( ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) ) );
 
             /* Check the alignment of the calculated top of kernel stack is correct. */
-            configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfKernelStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
+            configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxTopOfKernelStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
         }
         #endif /* configENABLE_RING3_TASKS */
 
@@ -2121,11 +2120,16 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         pxNewTCB->uxStackDepth = uxStackDepth;
     #endif
 
-    /*printf("Task %s stack bottom=%p top(initial)=%p size=%lu bytes\n",
+    printf("Task %s stack bottom=%p top(initial)=%p size=%lu bytes\n",
        pcName,
        pxNewTCB->pxStack,
        pxTopOfStack,
-       (unsigned long)uxStackDepth * sizeof(StackType_t));*/
+       (unsigned long)uxStackDepth * sizeof(StackType_t));
+    printf("Task %s kernel stack bottom=%p top(initial)=%p size=%lu bytes\n",
+       pcName,
+       pxNewTCB->pxKernelStack,
+       pxNewTCB->pxTopOfKernelStack,
+       (unsigned long)uxStackDepth * sizeof(StackType_t));
 
 }
 /*-----------------------------------------------------------*/
@@ -2146,6 +2150,13 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                  * the suspended state - make this the current task. */
                 pxCurrentTCB = pxNewTCB;
 
+                printf("!Task %s kernel stack bottom=%p top(initial)=%p size=%lu bytes\n",
+                    pxCurrentTCB->pcTaskName,
+                    pxCurrentTCB->pxKernelStack,
+                    pxCurrentTCB->pxTopOfKernelStack,
+                    (unsigned long)pxCurrentTCB->uxStackDepth * sizeof(StackType_t));
+
+                portSETUP_TCB_TSS( pxCurrentTCB );
                 if( uxCurrentNumberOfTasks == ( UBaseType_t ) 1 )
                 {
                     /* This is the first task to be created so do the preliminary

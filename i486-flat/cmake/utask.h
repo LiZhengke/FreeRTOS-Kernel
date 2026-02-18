@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define UTASK_STACK_SIZE 512 // 每个用户态任务的栈大小（字）
+#define UTASK_STACK_SIZE 512 // Stack size for each user-mode task (words)
 #define UTASK_NAME_LEN   16
 
 typedef enum {
@@ -13,19 +13,19 @@ typedef enum {
     UTASK_ZOMBIE
 } utask_state_t;
 
-/* 保存完整上下文（与 trapframe 对齐） */
+/* Save complete context (aligned with trapframe) */
 typedef struct uContext {
-    /* 通用寄存器 */
+    /* General purpose registers */
     uint32_t edi;
     uint32_t esi;
     uint32_t ebp;
-    uint32_t esp;        // 用户态 ESP
+    uint32_t esp;        // User-mode ESP
     uint32_t ebx;
     uint32_t edx;
     uint32_t ecx;
     uint32_t eax;
 
-    /* 中断自动压栈部分 */
+    /* Interrupt auto-pushed stack part */
     uint32_t eip;
     uint32_t cs;
     uint32_t eflags;
@@ -34,7 +34,7 @@ typedef struct uContext {
 
 } uContext;
 
-/* 用户态任务控制块 */
+/* User-mode task control block */
 typedef struct uTask {
 
     int                 id;
@@ -44,23 +44,23 @@ typedef struct uTask {
     int                 priority;
     int                 time_slice;
 
-    uint8_t            *stack_base;   // 栈底
+    uint8_t            *stack_base;   // Stack base
     uint32_t            stack_size;
-    uint32_t            stack_top;    // 栈顶（初始化时使用）
+    uint32_t            stack_top;    // Stack top (used during initialization)
 
-    uContext            context;      // 保存寄存器
+    uContext            context;      // Saved registers
 
-    /* 调度链表 */
+    /* Scheduling linked list */
     struct uTask       *next;
     struct uTask       *prev;
 
-    /* 验证字段 */
+    /* Verification fields */
     uint32_t            stack_canary;
     uint32_t            magic;
 
 } uTask;
 
-/***************** 用户态任务接口 *****************/
+/***************** User-mode task interface *****************/
 int uTaskCreate(uTask *task,
                 const char *name,
                 void (*entry)(void),
@@ -69,5 +69,6 @@ int32_t uSysYield(void);
 void uSysExit(void);
 int32_t uSysDelay(int ticks);
 void uSysDump(uTask *task);
-int32_t uSysPutChar(char ch); // 向用户态任务的标准输出写入一个字符
+int32_t uSysPutChar(char ch); // Write a character to user-mode task's standard output
+int32_t uSysPrintf(const char *fmt, ...); // Format output to user-mode task's standard output
 #endif

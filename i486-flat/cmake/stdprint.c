@@ -1,4 +1,7 @@
 #include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
+
 extern void putchar(char c);
 
 int puts(const char *__s)
@@ -39,18 +42,6 @@ static void print_int(int value)
     }
 }
 
-static void print_ptr(const void *ptr)
-{
-    unsigned int v = (unsigned int)ptr;
-    putchar('0');
-    putchar('x');
-
-    for (int i = 7; i >= 0; i--) {
-        unsigned int nibble = (v >> (i * 4)) & 0xF;
-        putchar(nibble < 10 ? '0' + nibble : 'a' + nibble - 10);
-    }
-}
-
 static void print_dec_unsigned(unsigned long val)
 {
     char buf[16];
@@ -71,11 +62,22 @@ static void print_dec_unsigned(unsigned long val)
     }
 }
 
+static int vprintf_internal(const char *__restrict __format, va_list __ap);
+int printf_va(const char *__restrict __format, va_list *__ap);
+
 int printf (const char *__restrict __format, ...)
 {
     va_list ap;
-    va_start(ap, __format);
+    int ret;
 
+    va_start(ap, __format);
+    ret = vprintf_internal(__format, ap);
+    va_end(ap);
+    return ret;
+}
+
+static int vprintf_internal(const char *__restrict __format, va_list __ap)
+{
     for (; *__format; __format++) {
         if (*__format != '%') {
             putchar(*__format);
@@ -93,39 +95,56 @@ int printf (const char *__restrict __format, ...)
 
         switch (*__format) {
         case 'c':
-            putchar((char)va_arg(ap, int));
+            putchar((char)va_arg(__ap, int));
             break;
 
         case 's': {
-            const char *s = va_arg(ap, const char *);
+            const char *s = va_arg(__ap, const char *);
             if (!s) s = "(null)";
             while (*s) putchar(*s++);
             break;
         }
 
-        case 'd':
-            print_int(va_arg(ap, int));
+        case 'x': {
+            unsigned int value = va_arg(__ap, unsigned int);
+            print_uint(value, 16);
             break;
+        }
 
-        case 'u':
+        case 'p': {
+            void *p = va_arg(__ap, void *);
+            putchar('0');
+            putchar('x');
+            print_uint((unsigned int)(uintptr_t)p, 16);
+            break;
+        }
+
+        case 'd': {
             if (is_long) {
-                print_dec_unsigned(va_arg(ap, unsigned long));
+                long val = va_arg(__ap, long);
+                if (val < 0) {
+                    putchar('-');
+                    print_dec_unsigned((unsigned long)(-val));
+                } else {
+                    print_dec_unsigned((unsigned long)val);
+                }
             } else {
-                print_uint(va_arg(ap, unsigned int), 10);
+                int val = va_arg(__ap, int);
+                print_int(val);
             }
             break;
+        }
 
-        case 'x':
-            print_uint(va_arg(ap, unsigned int), 16);
+        case 'u': {
+            if (is_long) {
+                unsigned long val = va_arg(__ap, unsigned long);
+                print_dec_unsigned(val);
+            } else {
+                unsigned int val = va_arg(__ap, unsigned int);
+                print_uint(val, 10);
+            }
             break;
-
-        case 'p':
-            print_ptr(va_arg(ap, void *));
-            break;
-
-        case '%':
-            putchar('%');
-            break;
+        }
 
         default:
             putchar('%');
@@ -135,6 +154,13 @@ int printf (const char *__restrict __format, ...)
         }
     }
 
-    va_end(ap);
     return 0;
+}
+
+int printf_va(const char *__restrict __format, va_list *__ap)
+{
+    if (__ap == NULL) {
+        return -1;
+    }
+    return vprintf_internal(__format, *__ap);
 }

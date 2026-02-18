@@ -22,20 +22,20 @@ int uTaskCreate(uTask *task,
     task->priority = priority;
     task->state    = UTASK_READY;
 
-    /* 分配用户栈 */
+    /* Allocate user stack */
     task->stack_size = UTASK_STACK_SIZE;
     task->stack_base = NULL;
 
     if (!task->stack_base)
         return -1;
 
-    /* 设置栈 canary */
+    /* Set stack canary */
     *(uint32_t*)task->stack_base = 0xDEADBEEF;
 
     uint32_t stack_top =
         (uint32_t)(task->stack_base + task->stack_size);
 
-    /* ---- 构造 iret 栈帧 ---- */
+    /* ---- Construct iret stack frame ---- */
 
     stack_top -= sizeof(uint32_t);
     *(uint32_t*)stack_top = USER_DS;         // SS
@@ -52,7 +52,7 @@ int uTaskCreate(uTask *task,
     stack_top -= sizeof(uint32_t);
     *(uint32_t*)stack_top = (uint32_t)entry; // EIP
 
-    /* 初始化 context */
+    /* Initialize context */
 
     task->context.eip      = (uint32_t)entry;
     task->context.cs       = USER_CS;

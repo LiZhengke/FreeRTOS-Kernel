@@ -116,25 +116,25 @@ common_stub:
      *  0x40  eflags
      */
 
-    /* 传递 regs_t * 给 C */
-    # 此时栈结构如下：
-    # [esp + 36] 错误码 (ErrorCode)
-    # [esp + 32] 向量号 (Vector)
-    # [esp + 0-31] pushal 保存的内容
+    /* Pass regs_t * to C */
+    # Stack structure at this point:
+    # [esp + 36] Error code (ErrorCode)
+    # [esp + 32] Vector number (Vector)
+    # [esp + 0-31] Content saved by pushal
 
-    # 调用 C 语言函数: void exception_handler(uint32_t vector, uint32_t err_code)
-    # 按照 C 调用约定 (cdecl)，参数从右往左压栈
-    # pushl 36(%esp)     # 压入参数 2: err_code
-    # pushl 40(%esp)     # 压入参数 1: vector (注意此处偏移变了，因为刚压入了一个值)
+    # Call C function: void exception_handler(uint32_t vector, uint32_t err_code)
+    # According to C calling convention (cdecl), parameters are pushed right to left
+    # pushl 36(%esp)     # Push parameter 2: err_code
+    # pushl 40(%esp)     # Push parameter 1: vector (note the offset changed because we just pushed a value)
 
-    pushl %esp        # 参数：regs_t *
+    pushl %esp        # Parameter: regs_t *
     # extern exception_handler
     call exception_handler
     addl $4, %esp
-    # 处理函数通常不应返回。如果返回，清理并恢复
+    # Handler should usually not return. If it returns, cleanup and restore
     #addl $8, %esp
 
-    /* 恢复段寄存器（逆序） */
+    /* Restore segment registers (reverse order) */
     popl %eax
     mov %ax, %ss
     popl %eax
@@ -147,5 +147,5 @@ common_stub:
     mov %ax, %ds
 
     popal
-    addl $8, %esp      # 清理 vector 和 err_code
+    addl $8, %esp      # Clean up vector and err_code
     iret

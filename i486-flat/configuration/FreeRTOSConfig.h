@@ -692,6 +692,8 @@
 /* Temporaly disabled  idle task for debugging */
 #define configUSE_IDLE_TASK_DISABLED           0
 
+#define configENABLE_PRINT_ESP                 0
+
 #if configENABLE_RING3_TASKS == 1
 #define portTASK_SWITCH_HOOK( pxTCB ) \
     if (pxTCB->xPrivilegeLevel == cpuPRIVILEGE_LEVEL_3) \

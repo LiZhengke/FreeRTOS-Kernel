@@ -3,7 +3,7 @@ set pagination off
 
 target remote :1234
 
-# 常用断点
+# Common breakpoints
 b _start
 b main
 b xPortStartScheduler
@@ -14,7 +14,9 @@ b pxPortInitialiseStack
 b vPortStartFirstTask
 b vPortTimerHandler
 b vPortSetupIDT
-# 自动观察
+b vPortYieldCall
+b vPortSysCall
+# Auto watch
 display/i $eip
 #display/x $eflags
 display/x $esp

@@ -7,9 +7,9 @@
 #define STR2(x) #x
 #define STR(x) STR2(x)
 
-#define ENOSYS   38   // syscall 不存在
-#define EINVAL   22   // 参数非法
-#define EPERM     1   // 权限不足
+#define ENOSYS   38   // Syscall does not exist
+#define EINVAL   22   // Invalid argument
+#define EPERM     1   // Permission denied
 
 enum {
     SYS_YIELD = 0,
@@ -19,6 +19,7 @@ enum {
     SYS_SEM_PEND,
     SYS_SEM_POST,
     SYS_PUTC,
+    SYS_PRINTF,
     SYS_PANIC,
     SYS_TASK_CREATE,
     SYS_MAX
@@ -31,6 +32,7 @@ int sys_time_get(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 int sys_sem_pend(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 int sys_sem_post(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 int sys_putc(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
+int sys_printf(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 int sys_panic(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 

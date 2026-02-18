@@ -21,3 +21,12 @@ void exception_handler(struct exc_regs *r) {
         outb(0x20, 0x20);
     }
 }
+
+uint32_t get_cpu_cpl(){
+    uint32_t cpl;
+    __asm__ volatile (
+        "mov %%cs, %0"
+        : "=r" (cpl)
+    );
+    return cpl & 0x3; // CPL is in the lower 2 bits of CS
+}

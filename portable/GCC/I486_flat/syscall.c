@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include "os_helper.h"
 #include "syscall.h"
 #include "FreeRTOS.h"
@@ -6,7 +8,8 @@
 #include "semphr.h"
 
 // Forward declaration
-void putchar(char c);
+extern int printf(const char *__restrict __format, ...);
+extern int printf_va(const char *__restrict __format, va_list *__ap);
 
 syscall_t syscall_table[SYS_MAX] = {
     sys_yield,
@@ -16,6 +19,7 @@ syscall_t syscall_table[SYS_MAX] = {
     sys_sem_pend,
     sys_sem_post,
     sys_putc,
+    sys_printf,
     sys_panic,
     sys_task_create
 };
@@ -25,12 +29,12 @@ int uSysCallDispatch(void)
     uint32_t num, a0, a1, a2, a3, a4;
 
     asm volatile(
-        "movl 36(%%ebp), %0\n"  // EAX saved by pushal
-        "movl 24(%%ebp), %1\n"  // EBX
-        "movl 32(%%ebp), %2\n"  // ECX
-        "movl 28(%%ebp), %3\n"  // EDX
-        "movl 12(%%ebp), %4\n"  // ESI
-        "movl 8(%%ebp), %5\n"   // EDI
+        "movl 52(%%ebp), %0\n"  // EAX saved by pushal
+        "movl 40(%%ebp), %1\n"  // EBX
+        "movl 48(%%ebp), %2\n"  // ECX
+        "movl 44(%%ebp), %3\n"  // EDX
+        "movl 28(%%ebp), %4\n"  // ESI
+        "movl 24(%%ebp), %5\n"   // EDI
         : "=a"(num), "=b"(a0), "=c"(a1),
           "=d"(a2), "=S"(a3), "=D"(a4)
     );
@@ -114,6 +118,16 @@ int sys_putc(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
     return 0;
 }
 
+int sys_printf(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
+{
+    (void)a2; (void)a3; (void)a4;
+    const char *fmt = (const char *)a0;
+    va_list *args = (va_list *)a1;
+    if (fmt == NULL || args == NULL)
+        return -EINVAL;
+    return printf_va(fmt, args);
+}
+
 int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
 {
     (void)a0; (void)a1; (void)a2; (void)a3; (void)a4;
@@ -166,5 +180,24 @@ int32_t uSysDelay(uint16_t ticks)
           "b"(ticks)        // ebx: argument
         : "memory"
     );
+    return ret;
+}
+
+int32_t uSysPrintf(const char *fmt, ...)
+{
+    int32_t ret;
+    va_list args;
+    va_start(args, fmt);
+
+    asm volatile (
+        "int $" STR(SYSINT)
+        : "=a"(ret)
+        : "a"(SYS_PRINTF),    // eax: syscall number
+          "b"(fmt),           // ebx: format string pointer
+          "c"(&args)          // ecx: pointer to va_list
+        : "memory"
+    );
+
+    va_end(args);
     return ret;
 }

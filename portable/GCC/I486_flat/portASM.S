@@ -127,14 +127,19 @@ vPortYieldCall:
     /* Find the TCB. */
     movl    pxCurrentTCB, %eax
 
+.if ( configENABLE_RING3_TASKS == 1 )
+    movl    8(%eax), %edx       # 8 = xPrivilegeLevel offset in TCB
+    cmp     $cpuPRIVILEGE_LEVEL_3, %edx
+    je      ring3_task
+    /* If the task is a user mode task, then switch to the kernel stack before setting the yield pending flag. */
+    movl    4(%eax), %esp       # 4 = pxKernelStackTop offset in TCB
+    movl    %esp, %ebp
+ring3_task:
+.endif /* configENABLE_RING3_TASKS */
+
     /* Stack location is first item in the TCB. */
     movl    %esp, (%eax)
 
-    movl    52(%esp), %ecx       # 52 = pushal(32) + eip(4) + cs offset
-    and     $3, %ecx
-incorrect_cpu_level:
-    test    %ecx, %ecx
-    jnz     incorrect_cpu_level
     call vTaskSwitchContext
 
     /* Find the location of pxCurrentTCB again - a callee saved register could
@@ -394,29 +399,29 @@ vPortAPICSpuriousHandler:
          /*
          * Stack layout at this point (ESP → increases downward as we push):
          *   +-----------------+
-         *   | GS              | ← ESP + 32 (top of stack after pushal)
+         *   | GS              | ← ESP + 0 (top of stack after pushal)
          *   +-----------------+
-         *   | FS              | ← ESP + 28
+         *   | FS              | ← ESP + 4
          *   +-----------------+
-         *   | ES              | ← ESP + 24
+         *   | ES              | ← ESP + 8
          *   +-----------------+
-         *   | DS              | ← ESP + 20
+         *   | DS              | ← ESP + 12
          *   +-----------------+
          *   | EDI             | ← ESP + 16
          *   +-----------------+
-         *   | ESI             | ← ESP + 12
+         *   | ESI             | ← ESP + 20
          *   +-----------------+
-         *   | EBP             | ← ESP + 8
+         *   | EBP             | ← ESP + 24
          *   +-----------------+
-         *   | ESP (original)  | ← ESP + 4
+         *   | ESP (original)  | ← ESP + 28
          *   +-----------------+
-         *   | EBX             | ← ESP (current value after pushal)
+         *   | EBX             | ← ESP + 32
          *   +-----------------+
-         *   | EDX             |
+         *   | EDX             | ← ESP + 36
          *   +-----------------+
-         *   | ECX             |
+         *   | ECX             | ← ESP + 40
          *   +-----------------+
-         *   | EAX             |
+         *   | EAX             | ← ESP + 44
          *   +-----------------+ (ESP points here)
           */
 
@@ -461,7 +466,6 @@ vPortAPICSpuriousHandler:
          *   +-----------------+ (ESP points here)
           */
         popal
-
 
         sti
         iret

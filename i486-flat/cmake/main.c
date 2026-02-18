@@ -44,6 +44,7 @@
 #include <stdio.h>
 #include "utils.h"
 #include "utask.h"
+#include "io.h"
 /*-----------------------------------------------------------*/
 
 #if 0  /* Currently unused */
@@ -91,13 +92,18 @@ void main( void * parameters )
      /* Unused parameters. */
     ( void ) parameters;
 
-    // ( void ) puts( "i486 flat Project main\n" );
+    uint16_t cpl = get_cpu_cpl();
+    ( void ) uSysPrintf( "i486 flat Project main\n Running in CPL=%u\n", cpl );
 
     for( ; ; )
     {
         /* The task is just going to print out its name and delay for a fixed
          * number of ticks. */
-        // printf( "Main task is running. esp=%p\n", ( void * ) get_esp() );
+        uSysPrintf( "Main task is running. tick=%lu cpl =%u\n", xTaskGetTickCount(), get_cpu_cpl());
+#if configENABLE_PRINT_ESP == 1
+        uSysPrintf( "Main task esp=%p\n", ( void * ) get_esp() );
+#endif /* configENABLE_PRINT_ESP */
+        /* ( void ) uSysPrintf( "Main task is running. tick=%lu esp=%p\n", xTaskGetTickCount(), get_esp() );*/
         uSysDelay( 100 ); /* delay 100 ticks */
     }
 
@@ -126,7 +132,10 @@ void main( void * parameters )
         TickType_t tickCount = xTaskGetTickCount();
         if( tickCount % 100 == 0 )  /* Print every 100 ticks. */
         {
-            printf( "Tick Hook: %lu esp=%p\n", ( unsigned long ) tickCount, ( void * ) get_esp() );
+            printf( "Tick Hook: %lu esp=%p\n", ( unsigned long ) tickCount);
+#if configENABLE_PRINT_ESP == 1
+            printf( "Tick Hook: esp=%p\n", ( void * ) get_esp() );
+#endif /* configENABLE_PRINT_ESP */
         }
     }
 #endif/* ( configUSE_TICK_HOOK != 0 ) */
@@ -146,7 +155,10 @@ void main( void * parameters )
 
         if (now != last) {
             esp = get_esp();
-            printf("Idle: tick=%lu esp=%p\n", now, (void*)esp);
+            printf("Idle: tick=%lu\n", now);
+#if configENABLE_PRINT_ESP == 1
+            printf("Idle: esp=%p\n", (void*)esp);
+#endif /* configENABLE_PRINT_ESP */
 
             vDebugGetCurrentStackInfo(&stack_base, &stack_size);
             stack_low  = (unsigned long)stack_base;

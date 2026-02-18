@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include "tss.h"
 /**
@@ -132,5 +133,6 @@ uint32_t tss_get_address(void)
 
 void tss_set_esp0(uint32_t esp0)
 {
+    printf("tss_set_esp0: updating TSS esp0 to %p\n", (void*)esp0);
     tss_entry.esp0 = esp0;
 }

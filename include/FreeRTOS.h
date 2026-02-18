@@ -587,6 +587,10 @@
     #define portSETUP_TCB( pxTCB )    ( void ) ( pxTCB )
 #endif
 
+#ifndef portSETUP_TCB_TSS
+    #define portSETUP_TCB_TSS( pxTCB )    ( void ) ( pxTCB )
+#endif
+
 #ifndef portTASK_SWITCH_HOOK
     #define portTASK_SWITCH_HOOK( pxTCB )    ( void ) ( pxTCB )
 #endif
