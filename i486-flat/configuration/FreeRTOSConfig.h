@@ -700,6 +700,13 @@
         tss_set_esp0((uint32_t)pxTCB->pxTopOfKernelStack);
 #endif /* configENABLE_RING3_TASKS */
 
+#define cpuPRIVILEGE_LEVEL_0    0 /* Highest privilege level. */
+#define cpuPRIVILEGE_LEVEL_1    1
+#define cpuPRIVILEGE_LEVEL_2    2
+#define cpuPRIVILEGE_LEVEL_3    3 /* Lowest privilege level. */
+
+#define tskPRIFLAG_CALLED       4
+
 #define INCLUDE_vTaskPrioritySet               1
 #define INCLUDE_uxTaskPriorityGet              1
 #define INCLUDE_vTaskDelete                    1

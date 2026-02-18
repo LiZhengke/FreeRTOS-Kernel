@@ -129,7 +129,8 @@ vPortYieldCall:
 
 .if ( configENABLE_RING3_TASKS == 1 )
     movl    8(%eax), %edx       # 8 = xPrivilegeLevel offset in TCB
-    cmp     $cpuPRIVILEGE_LEVEL_3, %edx
+    andl     $cpuPRIVILEGE_LEVEL_3, %edx
+    cmp      $cpuPRIVILEGE_LEVEL_3, %edx
     je      ring3_task
     /* If the task is a user mode task, then switch to the kernel stack before setting the yield pending flag. */
     movl    4(%eax), %esp       # 4 = pxKernelStackTop offset in TCB
@@ -181,6 +182,9 @@ vPortStartFirstTask:
     /* Stack location is first item in the TCB. */
     movl    (%eax), %esp
 
+    movl    8(%eax), %edx       # 8 = xPrivilegeLevel offset in TCB
+    orl     $tskPRIFLAG_CALLED, %edx
+    movl    %edx, 8(%eax)       # Update xPrivilegeLevel in TCB to indicate first task has been started.
     /* Restore FPU context flag. */
     .if configSUPPORT_FPU == 1
 

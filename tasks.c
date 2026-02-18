@@ -378,7 +378,7 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     volatile StackType_t * pxTopOfStack; /**< Points to the location of the last item placed on the tasks stack.  THIS MUST BE THE FIRST MEMBER OF THE TCB STRUCT. */
 #if ( configENABLE_RING3_TASKS == 1 )
     volatile StackType_t * pxTopOfKernelStack;                  /**< Points to the start of the kernel stack. */
-     cpu_privilege_level_t xPrivilegeLevel;      /**< The privilege level of the task. */
+    cpu_privilege_level_t xPrivilegeLevel;      /**< The privilege level of the task. */
 #endif
    #if ( portUSING_MPU_WRAPPERS == 1 )
         xMPU_SETTINGS xMPUSettings; /**< The MPU settings are defined as part of the port layer.  THIS MUST BE THE SECOND MEMBER OF THE TCB STRUCT. */

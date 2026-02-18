@@ -123,13 +123,7 @@ typedef enum
 } eNotifyAction;
 
 /* CPU privilege levels. */
-typedef enum cpu_privilege_level
-{
-    cpuPRIVILEGE_LEVEL_0 = 0, /* Highest privilege level. */
-    cpuPRIVILEGE_LEVEL_1,
-    cpuPRIVILEGE_LEVEL_2,
-    cpuPRIVILEGE_LEVEL_3 /* Lowest privilege level. */
-} cpu_privilege_level_t;
+typedef uint32_t cpu_privilege_level_t;
 
 /*
  * Used internally only.
