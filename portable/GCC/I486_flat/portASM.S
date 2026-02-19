@@ -128,18 +128,19 @@ vPortYieldCall:
     movl    pxCurrentTCB, %eax
 
 .if ( configENABLE_RING3_TASKS == 1 )
-    movl    8(%eax), %edx       # 8 = xPrivilegeLevel offset in TCB
-    andl     $cpuPRIVILEGE_LEVEL_3, %edx
-    cmp      $cpuPRIVILEGE_LEVEL_3, %edx
-    je      ring3_task
-    /* If the task is a user mode task, then switch to the kernel stack before setting the yield pending flag. */
-    movl    4(%eax), %esp       # 4 = pxKernelStackTop offset in TCB
-    movl    %esp, %ebp
-ring3_task:
-.endif /* configENABLE_RING3_TASKS */
+    call tsk_stack_align
+    jmp *tsk_jump_table(,%eax,4)
 
+tsk_jump_table:
+    .long handle_ring0
+    .long handle_ring3_existing
+    .long handle_ring3_first
+.endif /* configENABLE_RING3_TASKS */
+handle_ring0:
     /* Stack location is first item in the TCB. */
     movl    %esp, (%eax)
+handle_ring3_existing:
+    movl    %esp, 4(%eax)
 
     call vTaskSwitchContext
 
@@ -162,7 +163,7 @@ ring3_task:
         frstor  ( %eax )
         1:
     .endif
-
+handle_ring3_first:
     # Restore segment registers (pop in reverse order of push: GS, FS, ES, DS)
     POP_SEGS()
 
@@ -498,6 +499,38 @@ flush_cs:
     ret
 .endfunc
 
+.if ( configENABLE_RING3_TASKS == 1 )
+.align 4
+.func tsk_stack_align
+tsk_stack_align:
+    /* Find the TCB. */
+    movl    pxCurrentTCB, %eax
+    movl    8(%eax), %edx       # presumably xPrivilegeLevel, but could also be tskPRIVILEGE_BIT in which case the check is the same
+
+    # privilege?
+    movl    %edx, %ecx
+    andl    $cpuPRIVILEGE_LEVEL_3, %ecx
+    cmp     $cpuPRIVILEGE_LEVEL_3, %ecx
+    jne     ring0_task
+
+    # created?
+    andl    $tskPRIFLAG_CALLED, %edx
+    cmp     $tskPRIFLAG_CALLED, %edx
+    je      task_already_created
+
+    /* If the task is a user mode task, then switch to the kernel stack before setting the yield pending flag. */
+    movl    $2, %eax # Return 2 to indicate the ring 3 task is being created for the first time, so stack alignment is required.
+    ret
+ring0_task:
+    movl   $0, %eax # Return 0 to indicate ring0 task, which does not require stack alignment.
+    ret
+
+task_already_created:
+    movl   $1, %eax # Return 1 to indicate the ring 3 task has already been created, so stack alignment is required.
+    ret
+
+.endfunc
+.endif /* configENABLE_RING3_TASKS */
 .end
 
 .section .note.GNU-stack,"",@progbits
