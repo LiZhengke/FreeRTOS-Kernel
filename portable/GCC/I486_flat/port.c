@@ -504,7 +504,6 @@ BaseType_t xPortStartScheduler( void )
     configASSERT( sizeof( struct IDTEntry ) == portEXPECTED_IDT_ENTRY_SIZE );
 
     (void) xWord;
-#if (configENABLE_RING3_TASKS == 0)
     ulTopOfSystemStack =
     (uint32_t)&(ulSystemStack[ configISR_STACK_SIZE - 5 ]);
 
@@ -518,7 +517,6 @@ BaseType_t xPortStartScheduler( void )
     {
         ulSystemStack[ xWord ] = portSTACK_WORD;
     }
-#endif /* configENABLE_RING3_TASKS == 0 */
 
 #if (configENABLE_RING3_TASKS == 1)
     /* Initialise the Global Descriptor Table (GDT). */
@@ -866,8 +864,8 @@ void vStartMainTask( void )
                                 configMINIMAL_STACK_SIZE,
                                 NULL,
                                 configMAX_PRIORITIES - 1U,
-                                &( mainKernelStack[ 0 ] ),
                                 &( mainUserStack[ 0 ] ),
+                                &( mainKernelStack[ 0 ] ),
                                 cpuPRIVILEGE_LEVEL_3,
                                 &( mainTaskTCB ) );
 

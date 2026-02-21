@@ -696,8 +696,8 @@
 
 #if configENABLE_RING3_TASKS == 1
 #define portTASK_SWITCH_HOOK( pxTCB ) \
-    if (pxTCB->xPrivilegeLevel == cpuPRIVILEGE_LEVEL_3) \
-        tss_set_esp0((uint32_t)pxTCB->pxTopOfKernelStack);
+    if ((pxTCB->xPrivilegeLevel & 0x03) == cpuPRIVILEGE_LEVEL_3) \
+        tss_set_esp0((uint32_t)pxTCB->pxStack);
 #endif /* configENABLE_RING3_TASKS */
 
 #define cpuPRIVILEGE_LEVEL_0    0 /* Highest privilege level. */

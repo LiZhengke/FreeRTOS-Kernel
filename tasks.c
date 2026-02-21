@@ -376,10 +376,14 @@
 typedef struct tskTaskControlBlock       /* The old naming convention is used to prevent breaking kernel aware debuggers. */
 {
     volatile StackType_t * pxTopOfStack; /**< Points to the location of the last item placed on the tasks stack.  THIS MUST BE THE FIRST MEMBER OF THE TCB STRUCT. */
+    StackType_t * pxStack;                      /**< Points to the start of the stack. */
 #if ( configENABLE_RING3_TASKS == 1 )
-    volatile StackType_t * pxTopOfKernelStack;                  /**< Points to the start of the kernel stack. */
+    StackType_t * pxUserStack;                  /**< Points to the start of the user stack. */
+    size_t xKernelStackSize;                      /**< The size of the kernel stack. */
     cpu_privilege_level_t xPrivilegeLevel;      /**< The privilege level of the task. */
+
 #endif
+
    #if ( portUSING_MPU_WRAPPERS == 1 )
         xMPU_SETTINGS xMPUSettings; /**< The MPU settings are defined as part of the port layer.  THIS MUST BE THE SECOND MEMBER OF THE TCB STRUCT. */
     #endif
@@ -391,10 +395,6 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     ListItem_t xStateListItem;                  /**< The list that the state list item of a task is reference from denotes the state of that task (Ready, Blocked, Suspended ). */
     ListItem_t xEventListItem;                  /**< Used to reference a task from an event list. */
     UBaseType_t uxPriority;                     /**< The priority of the task.  0 is the lowest priority. */
-    StackType_t * pxStack;                      /**< Points to the start of the stack. */
-#if ( configENABLE_RING3_TASKS == 1 )
-    StackType_t * pxKernelStack;                  /**< Points to the start of the kernel stack. */
-#endif
 
     #if ( configNUMBER_OF_CORES > 1 )
         volatile BaseType_t xTaskRunState;      /**< Used to identify the core the task is running on, if the task is running. Otherwise, identifies the task's state - not running or yielding. */
@@ -756,8 +756,8 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                         const configSTACK_DEPTH_TYPE uxStackDepth,
                                         void * const pvParameters,
                                         UBaseType_t uxPriority,
-                                        StackType_t * const puxKernelStackBuffer,
                                         StackType_t * const puxUserStackBuffer,
+                                        StackType_t * const puxStackBuffer,
                                         StaticTask_t * const pxTaskBuffer,
                                         cpu_privilege_level_t xPrivilegeLevel,
                                         TaskHandle_t * const pxCreatedTask ) PRIVILEGED_FUNCTION;
@@ -1299,7 +1299,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                         const configSTACK_DEPTH_TYPE uxStackDepth,
                                         void * const pvParameters,
                                         UBaseType_t uxPriority,
-                                        StackType_t * const puxKernelStackBuffer,
+                                        StackType_t * const puxUserStackBuffer,
                                         StackType_t * const puxStackBuffer,
                                         StaticTask_t * const pxTaskBuffer,
                                         cpu_privilege_level_t xPrivilegeLevel,
@@ -1332,9 +1332,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
             pxNewTCB->pxStack = ( StackType_t * ) puxStackBuffer;
             #if ( configENABLE_RING3_TASKS == 1 )
-            pxNewTCB->pxKernelStack = ( StackType_t * ) puxKernelStackBuffer;
+            pxNewTCB->pxUserStack = ( StackType_t * ) puxUserStackBuffer;
             #else
-            ( void ) puxKernelStackBuffer; /* Prevent unused variable warning when configENABLE_RING3_TASKS is not 1. */
+            ( void ) puxUserStackBuffer; /* Prevent unused variable warning when configENABLE_RING3_TASKS is not 1. */
             #endif
 
             #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 )
@@ -1361,7 +1361,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                     const configSTACK_DEPTH_TYPE uxStackDepth,
                                     void * const pvParameters,
                                     UBaseType_t uxPriority,
-                                    StackType_t * const puxKernelStackBuffer,
+                                    StackType_t * const puxUserStackBuffer,
                                     StackType_t * const puxStackBuffer,
                                     cpu_privilege_level_t xPrivilegeLevel,
                                     StaticTask_t * const pxTaskBuffer)
@@ -1369,9 +1369,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         TaskHandle_t xReturn = NULL;
         TCB_t * pxNewTCB;
 
-        traceENTER_xTaskCreateStatic( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxKernelStackBuffer, puxStackBuffer, pxTaskBuffer );
+        traceENTER_xTaskCreateStatic( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxUserStackBuffer, puxStackBuffer, pxTaskBuffer );
 
-        pxNewTCB = prvCreateStaticTask( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxKernelStackBuffer, puxStackBuffer, pxTaskBuffer, xPrivilegeLevel, &xReturn );
+        pxNewTCB = prvCreateStaticTask( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxUserStackBuffer, puxStackBuffer, pxTaskBuffer, xPrivilegeLevel, &xReturn );
 
         if( pxNewTCB != NULL )
         {
@@ -1401,7 +1401,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                                    const configSTACK_DEPTH_TYPE uxStackDepth,
                                                    void * const pvParameters,
                                                    UBaseType_t uxPriority,
-                                                   StackType_t * const puxKernelStackBuffer,
+                                                   StackType_t * const puxUserStackBuffer,
                                                    StackType_t * const puxUserStackBuffer,
                                                    StaticTask_t * const pxTaskBuffer,
                                                    UBaseType_t uxCoreAffinityMask )
@@ -1409,9 +1409,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             TaskHandle_t xReturn = NULL;
             TCB_t * pxNewTCB;
 
-            traceENTER_xTaskCreateStaticAffinitySet( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxKernelStackBuffer, puxUserStackBuffer, pxTaskBuffer, uxCoreAffinityMask );
+            traceENTER_xTaskCreateStaticAffinitySet( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxUserStackBuffer, puxUserStackBuffer, pxTaskBuffer, uxCoreAffinityMask );
 
-            pxNewTCB = prvCreateStaticTask( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxKernelStackBuffer, puxUserStackBuffer, pxTaskBuffer, &xReturn );
+            pxNewTCB = prvCreateStaticTask( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxUserStackBuffer, puxUserStackBuffer, pxTaskBuffer, &xReturn );
 
             if( pxNewTCB != NULL )
             {
@@ -1440,11 +1440,11 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
     {
         TCB_t * pxNewTCB;
 
-        configASSERT( pxTaskDefinition->puxKernelStackBuffer != NULL );
+        configASSERT( pxTaskDefinition->puxUserStackBuffer != NULL );
         configASSERT( pxTaskDefinition->puxUserStackBuffer != NULL );
         configASSERT( pxTaskDefinition->pxTaskBuffer != NULL );
 
-        if( ( pxTaskDefinition->puxKernelStackBuffer != NULL ) && ( pxTaskDefinition->puxUserStackBuffer != NULL ) && ( pxTaskDefinition->pxTaskBuffer != NULL ) )
+        if( ( pxTaskDefinition->puxUserStackBuffer != NULL ) && ( pxTaskDefinition->puxUserStackBuffer != NULL ) && ( pxTaskDefinition->pxTaskBuffer != NULL ) )
         {
             /* Allocate space for the TCB.  Where the memory comes from depends
              * on the implementation of the port malloc function and whether or
@@ -1453,7 +1453,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
             /* Store the stack location in the TCB. */
-            pxNewTCB->pxKernelStack = pxTaskDefinition->puxKernelStackBuffer;
+            pxNewTCB->pxUserStack = pxTaskDefinition->puxUserStackBuffer;
             pxNewTCB->pxUserStack = pxTaskDefinition->puxUserStackBuffer;
 
             #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 )
@@ -1880,8 +1880,8 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     #if ( tskSET_NEW_STACKS_TO_KNOWN_VALUE == 1 )
     {
         /* Fill the stack with a known value to assist debugging. */
-        ( void ) memset( pxNewTCB->pxStack, ( int ) tskSTACK_FILL_BYTE, ( size_t ) uxStackDepth * sizeof( StackType_t ) );
-        ( void ) memset( pxNewTCB->pxKernelStack, ( int ) tskKERNEL_STACK_FILL_BYTE, ( size_t ) uxStackDepth * sizeof( StackType_t ) );
+        ( void ) memset( pxNewTCB->pxStack, ( int ) tskKERNEL_STACK_FILL_BYTE, ( size_t ) uxStackDepth * sizeof( StackType_t ) );
+        ( void ) memset( pxNewTCB->pxUserStack, ( int ) tskSTACK_FILL_BYTE, ( size_t ) uxStackDepth * sizeof( StackType_t ) );
     }
     #endif /* tskSET_NEW_STACKS_TO_KNOWN_VALUE */
 
@@ -1900,11 +1900,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
         #if configENABLE_RING3_TASKS == 1
         {
-            pxNewTCB->pxTopOfKernelStack = &( pxNewTCB->pxKernelStack[ uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 ] );
-            pxNewTCB->pxTopOfKernelStack = ( StackType_t * ) ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxTopOfKernelStack ) & ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) );
+            pxNewTCB->pxStack = &( pxNewTCB->pxUserStack[ uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 ] );
+            pxNewTCB->pxStack = ( StackType_t * ) ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxStack ) & ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) );
 
             /* Check the alignment of the calculated top of kernel stack is correct. */
-            configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxTopOfKernelStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
+            configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
         }
         #endif /* configENABLE_RING3_TASKS */
         #if ( configRECORD_STACK_HIGH_ADDRESS == 1 )
@@ -1914,7 +1914,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             pxNewTCB->pxEndOfStack = pxTopOfStack;
             #if configENABLE_RING3_TASKS == 1
             {
-                pxNewTCB->pxEndOfKernelStack = pxNewTCB->pxTopOfKernelStack;
+                pxNewTCB->pxEndOfKernelStack = pxNewTCB->pxStack;
             }
             #endif /* configENABLE_RING3_TASKS */
         }
@@ -1930,11 +1930,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         #if configENABLE_RING3_TASKS == 1
         {
-            pxNewTCB->pxTopOfKernelStack = pxNewTCB->pxKernelStack;
-            pxNewTCB->pxTopOfKernelStack = ( StackType_t * ) ( ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxTopOfKernelStack ) + portBYTE_ALIGNMENT_MASK ) & ( ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) ) );
+            pxNewTCB->pxStack = pxNewTCB->pxUserStack;
+            pxNewTCB->pxStack = ( StackType_t * ) ( ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxStack ) + portBYTE_ALIGNMENT_MASK ) & ( ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) ) );
 
             /* Check the alignment of the calculated top of kernel stack is correct. */
-            configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxTopOfKernelStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
+            configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxNewTCB->pxStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
         }
         #endif /* configENABLE_RING3_TASKS */
 
@@ -1943,7 +1943,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         pxNewTCB->pxEndOfStack = pxNewTCB->pxStack + ( uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 );
         #if configENABLE_RING3_TASKS == 1
         {
-            pxNewTCB->pxEndOfKernelStack = pxNewTCB->pxKernelStack + ( uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 );
+            pxNewTCB->pxEndOfKernelStack = pxNewTCB->pxUserStack + ( uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 );
         }
         #endif /* configENABLE_RING3_TASKS */
     }
@@ -2127,8 +2127,8 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
        (unsigned long)uxStackDepth * sizeof(StackType_t));
     printf("Task %s kernel stack bottom=%p top(initial)=%p size=%lu bytes\n",
        pcName,
-       pxNewTCB->pxKernelStack,
-       pxNewTCB->pxTopOfKernelStack,
+       pxNewTCB->pxUserStack,
+    pxNewTCB->pxStack,
        (unsigned long)uxStackDepth * sizeof(StackType_t));
 
 }
@@ -2152,8 +2152,8 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
                 printf("!Task %s kernel stack bottom=%p top(initial)=%p size=%lu bytes\n",
                     pxCurrentTCB->pcTaskName,
-                    pxCurrentTCB->pxKernelStack,
-                    pxCurrentTCB->pxTopOfKernelStack,
+                    pxCurrentTCB->pxUserStack,
+                    pxCurrentTCB->pxStack,
                     (unsigned long)pxCurrentTCB->uxStackDepth * sizeof(StackType_t));
 
                 portSETUP_TCB_TSS( pxCurrentTCB );

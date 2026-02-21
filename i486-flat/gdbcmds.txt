@@ -16,6 +16,7 @@ b vPortTimerHandler
 b vPortSetupIDT
 b vPortYieldCall
 b vPortSysCall
+b xTaskResumeAll
 # Auto watch
 display/i $eip
 #display/x $eflags

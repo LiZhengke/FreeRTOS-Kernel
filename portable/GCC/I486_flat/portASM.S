@@ -29,7 +29,6 @@
 .file "portASM.S"
 #include "FreeRTOSConfig.h"
 #include "ISR_Support.h"
-    /*.include "asm_macros.inc"*/
 #include "asm_macros.h"
 
     .extern pxCurrentTCB
@@ -60,52 +59,7 @@
 vPortYieldCall:
     /* Save general purpose registers. */
     pushal
-
-    # Save segment registers (required to preserve segment state across handler)
     PUSH_SEGS()
-
-     /*
-    * Stack layout at this point (ESP → increases downward as we push):
-    * After pusha and PUSH_SEGS()():
-    *   +-----------------+
-    *   | GS              | ← ESP + 0
-    *   +-----------------+
-    *   | FS              | ← ESP + 4
-    *   +-----------------+
-    *   | ES              | ← ESP + 8
-    *   +-----------------+
-    *   | DS              | ← ESP + 12
-    *   +-----------------+
-    *   | EDI             | ← ESP + 16
-    *   +-----------------+
-    *   | ESI             | ← ESP + 20
-    *   +-----------------+
-    *   | EBP             | ← ESP + 24
-    *   +-----------------+
-    *   | ESP (original)  | ← ESP + 28
-    *   +-----------------+
-    *   | EBX             | ← ESP + 32
-    *   +-----------------+
-    *   | EDX             | ← ESP + 36
-    *   +-----------------+
-    *   | ECX             | ← ESP + 40
-    *   +-----------------+
-    *   | EAX             | ← ESP + 44
-    *   +-----------------+
-    * Hardware-pushed interrupt frame:
-    *   | EIP (return)    | ← ESP + 48
-    *   +-----------------+
-    *   | CS              | ← ESP + 52
-    *   +-----------------+
-    *   | EFLAGS          | ← ESP + 56
-    *   +-----------------+
-    *   | ESP (user)      | ← ESP + 60 (only if ring change)
-    *   +-----------------+
-    *   | SS (user)       | ← ESP + 64 (only if ring change)
-    *   +-----------------+
-    */
-
-     /* Set the yield pending flag. */
 
     .if configSUPPORT_FPU == 1
 
@@ -127,20 +81,8 @@ vPortYieldCall:
     /* Find the TCB. */
     movl    pxCurrentTCB, %eax
 
-.if ( configENABLE_RING3_TASKS == 1 )
-    call tsk_stack_align
-    jmp *tsk_jump_table(,%eax,4)
-
-tsk_jump_table:
-    .long handle_ring0
-    .long handle_ring3_existing
-    .long handle_ring3_first
-.endif /* configENABLE_RING3_TASKS */
-handle_ring0:
     /* Stack location is first item in the TCB. */
     movl    %esp, (%eax)
-handle_ring3_existing:
-    movl    %esp, 4(%eax)
 
     call vTaskSwitchContext
 
@@ -162,11 +104,9 @@ handle_ring3_existing:
         je      1f
         frstor  ( %eax )
         1:
-    .endif
-handle_ring3_first:
-    # Restore segment registers (pop in reverse order of push: GS, FS, ES, DS)
-    POP_SEGS()
+    .endif /* configSUPPORT_FPU */
 
+    POP_SEGS()
     popal
     iret
 
@@ -183,9 +123,6 @@ vPortStartFirstTask:
     /* Stack location is first item in the TCB. */
     movl    (%eax), %esp
 
-    movl    8(%eax), %edx       # 8 = xPrivilegeLevel offset in TCB
-    orl     $tskPRIFLAG_CALLED, %edx
-    movl    %edx, 8(%eax)       # Update xPrivilegeLevel in TCB to indicate first task has been started.
     /* Restore FPU context flag. */
     .if configSUPPORT_FPU == 1
 
@@ -282,19 +219,12 @@ vPortTimerHandler:
     /* Stack location is first item in the TCB. */
     movl    %esp, (%eax)
 
-    movl    52(%esp), %ecx       # 52 = pushal(32) + eip(4) + cs offset
-    and     $3, %ecx
-    test    %ecx, %ecx
-    jne     already_on_kernel_stack
-
-    movl    pxCurrentTCB, %eax
-    movl    4(%eax), %esp        # pxKernelStackTop
+    /* Switch stacks. */
+    movl    ulTopOfSystemStack, %esp
     movl    %esp, %ebp
 
-already_on_kernel_stack:
-
     /* Increment nesting count. */
-    addl    $1, ulInterruptNesting
+    add     $1, ulInterruptNesting
 
     call    xTaskIncrementTick
 

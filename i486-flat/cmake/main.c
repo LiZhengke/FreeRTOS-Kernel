@@ -99,9 +99,9 @@ void main( void * parameters )
     {
         /* The task is just going to print out its name and delay for a fixed
          * number of ticks. */
-        uSysPrintf( "Main task is running. tick=%lu cpl =%u\n", xTaskGetTickCount(), get_cpu_cpl());
+        /* uSysPrintf( "Main task is running. tick=%lu cpl =%u\n", xTaskGetTickCount(), get_cpu_cpl());*/
 #if configENABLE_PRINT_ESP == 1
-        uSysPrintf( "Main task esp=%p\n", ( void * ) get_esp() );
+        /* uSysPrintf( "Main task esp=%p\n", ( void * ) get_esp() );*/
 #endif /* configENABLE_PRINT_ESP */
         /* ( void ) uSysPrintf( "Main task is running. tick=%lu esp=%p\n", xTaskGetTickCount(), get_esp() );*/
         uSysDelay( 100 ); /* delay 100 ticks */
