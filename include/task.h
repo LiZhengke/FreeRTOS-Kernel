@@ -122,6 +122,9 @@ typedef enum
     eSetValueWithoutOverwrite /* Set the task's notification value if the previous value has been read by the task. */
 } eNotifyAction;
 
+/* CPU privilege levels. */
+/* typedef uint32_t cpu_privilege_level_t;*/
+
 /*
  * Used internally only.
  */
@@ -387,6 +390,7 @@ typedef enum
                             const configSTACK_DEPTH_TYPE uxStackDepth,
                             void * const pvParameters,
                             UBaseType_t uxPriority,
+                            cpu_privilege_level_t xPrivilegeLevel,
                             TaskHandle_t * const pxCreatedTask ) PRIVILEGED_FUNCTION;
 #endif
 
@@ -396,6 +400,7 @@ typedef enum
                                        const configSTACK_DEPTH_TYPE uxStackDepth,
                                        void * const pvParameters,
                                        UBaseType_t uxPriority,
+                                       cpu_privilege_level_t xPrivilegeLevel,
                                        UBaseType_t uxCoreAffinityMask,
                                        TaskHandle_t * const pxCreatedTask ) PRIVILEGED_FUNCTION;
 #endif
@@ -515,6 +520,8 @@ typedef enum
                                     void * const pvParameters,
                                     UBaseType_t uxPriority,
                                     StackType_t * const puxStackBuffer,
+                                    StackType_t * const puxStackUserBuffer,
+                                    cpu_privilege_level_t xUserPrivilegeLevel,
                                     StaticTask_t * const pxTaskBuffer ) PRIVILEGED_FUNCTION;
 #endif /* configSUPPORT_STATIC_ALLOCATION */
 

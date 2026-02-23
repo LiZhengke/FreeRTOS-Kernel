@@ -55,10 +55,10 @@
 #define portBASE_TYPE     long
 
 typedef uint32_t         StackType_t;
-typedef int32_t         BaseType_t;
+typedef int32_t          BaseType_t;
 typedef uint32_t         TickType_t;
 typedef uint32_t         UBaseType_t;
-
+typedef uint32_t         cpu_privilege_level_t;
 #define portMAX_DELAY    ( ( TickType_t ) 0xffffffffUL )
 
 /*-----------------------------------------------------------*/
@@ -79,6 +79,7 @@ typedef uint32_t         UBaseType_t;
  * in the portYIELD_INTERRUPT definition immediately below. */
 #define portAPIC_TIMER_INT_VECTOR       ( 0x20 )
 #define portAPIC_YIELD_INT_VECTOR       ( 0x21 )
+#define portSYSCALL_INT_VECTOR          ( 0x30 )
 
 /* Build yield interrupt instruction. */
 #define portYIELD_INTERRUPT             "int $0x21"
@@ -292,6 +293,10 @@ BaseType_t xPortInstallInterruptHandler( ISR_Handler_t pxHandler,
  * above the max system call interrupt priority. */
 #define portAPIC_PROCESSOR_PRIORITY    ( *( ( volatile uint32_t * ) ( configAPIC_BASE + 0xA0UL ) ) )
 #define portASSERT_IF_INTERRUPT_PRIORITY_INVALID()    configASSERT( ( portAPIC_PROCESSOR_PRIORITY ) <= ( portMAX_API_CALL_PRIORITY ) )
+
+#define portSETUP_TCB_TSS( pxTCB ) \
+    printf( "portSETUP_TCB_TSS: setting TSS esp0 to %p for task %s\n", ( void * ) ( pxTCB->pxStack ), pxTCB->pcTaskName ); \
+    tss_set_esp0( ( uint32_t ) ( pxTCB->pxStack ) )
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

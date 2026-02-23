@@ -28,6 +28,7 @@
 
 /* Standard includes. */
 #include <limits.h>
+#include <stdio.h>
 
 /* Scheduler includes. */
 #include "FreeRTOS.h"
@@ -35,11 +36,7 @@
 #include "portmacro.h"
 #include "io.h"
 #include "i8259.h"
-
-#define STR(x) #x
-#define XSTR(x) STR(x)
-
-_Static_assert(sizeof(void*) == 4, "ERROR: pointer is not 32-bit");
+#include "tss.h"
 
 uint8_t ucHeap[1] __attribute__((section(".heap")));
 
@@ -75,6 +72,7 @@ uint8_t ucHeap[1] __attribute__((section(".heap")));
 
 /* Only the IF bit is set so tasks start with interrupts enabled. */
 #define portINITIAL_EFLAGS               ( 0x200UL )
+#define portINITIAL_EFLAGS_RING3         ( 0x202UL )
 
 /* Error interrupts are at the highest priority vectors. */
 #define portAPIC_LVT_ERROR_VECTOR        ( 0xfe )
@@ -90,8 +88,13 @@ uint8_t ucHeap[1] __attribute__((section(".heap")));
  * is set correctly. */
 #define portEXPECTED_IDT_ENTRY_SIZE      8
 
-/* Default flags setting for entries in the IDT. */
+/* Default flags setting for entries in the IDT.
+ * 0x8E = Present, DPL=0 (ring 0), 32-bit interrupt gate */
 #define portIDT_FLAGS                    ( 0x8E )
+
+/* IDT flags for ring 3 (user mode) accessible interrupts.
+ * 0xEE = Present, DPL=3 (ring 3), 32-bit interrupt gate */
+#define portIDT_FLAGS_RING3              ( 0xEE )
 
 /* This is the lowest possible ISR vector available to application code. */
 #define portAPIC_MIN_ALLOWABLE_VECTOR    ( 0x20 )
@@ -127,6 +130,9 @@ extern void vPortCentralInterruptWrapper( void );
  * Handler for portYIELD().
  */
 extern void vPortYieldCall( void );
+
+/* Handler for portSYSCALL(). */
+extern void vPortSysCall( void );
 
 #if (configUSE_APIC == 1)
 /*
@@ -221,7 +227,9 @@ volatile uint32_t ulInterruptNesting __attribute__( ( used ) ) = 0;
  * See header file for description.
  */
 StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
+                                     StackType_t * pxTopOfUserStack,
                                      TaskFunction_t pxCode,
+                                     cpu_privilege_level_t xUserPrivilegeLevel,
                                      void * pvParameters )
 {
     uint32_t ulCodeSegment;
@@ -242,19 +250,37 @@ StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
     *pxTopOfStack = ( StackType_t ) prvTaskExitError;
     pxTopOfStack--;
 
-    /* iret used to start the task pops up to here. */
-    *pxTopOfStack = portINITIAL_EFLAGS;
-    pxTopOfStack--;
+    if( xUserPrivilegeLevel == cpuPRIVILEGE_LEVEL_3 ){
+        *pxTopOfStack = USER_DS; /* Data segment for user mode. */
+        pxTopOfStack--;
+        *pxTopOfStack = ( StackType_t ) pxTopOfUserStack; /* User mode stack pointer. */
+        pxTopOfStack--;
 
-    /* CS */
-    __asm volatile ( "movl %%cs, %0" : "=r" ( ulCodeSegment ) );
-    *pxTopOfStack = ulCodeSegment;
-    pxTopOfStack--;
+        /* iret used to start the task pops up to here. */
+        *pxTopOfStack = portINITIAL_EFLAGS_RING3;
+        pxTopOfStack--;
 
-    /* First instruction in the task. */
-    *pxTopOfStack = ( StackType_t ) pxCode;
-    pxTopOfStack--;
+        /* CS */
+        *pxTopOfStack = USER_CS; /* Code segment for user mode. */
+        pxTopOfStack--;
 
+        /* First instruction in the task. */
+        *pxTopOfStack = ( StackType_t ) pxCode;
+        pxTopOfStack--;
+
+    } else {
+        *pxTopOfStack = portINITIAL_EFLAGS;
+        pxTopOfStack--;
+
+        /* CS */
+        __asm volatile ( "movl %%cs, %0" : "=r" ( ulCodeSegment ) );
+        *pxTopOfStack = ulCodeSegment;
+        pxTopOfStack--;
+
+        /* First instruction in the task. */
+        *pxTopOfStack = ( StackType_t ) pxCode;
+        pxTopOfStack--;
+    }
     /* General purpose registers as expected by a POPA instruction. */
     *pxTopOfStack = 0xEA;
     pxTopOfStack--;
@@ -278,7 +304,31 @@ StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
     pxTopOfStack--;
 
     *pxTopOfStack = 0xeeeeeeee; /* EDI */
+    pxTopOfStack--;
 
+    if( xUserPrivilegeLevel == cpuPRIVILEGE_LEVEL_3 ){
+        *pxTopOfStack = USER_DS; /* DS */
+        pxTopOfStack--;
+
+        *pxTopOfStack = USER_DS; /* ES */
+        pxTopOfStack--;
+
+        *pxTopOfStack = USER_DS; /* FS */
+        pxTopOfStack--;
+
+        *pxTopOfStack = USER_DS; /* GS */
+    } else {
+        *pxTopOfStack = KERNEL_DS; /* DS */
+        pxTopOfStack--;
+
+        *pxTopOfStack = KERNEL_DS; /* ES */
+        pxTopOfStack--;
+
+        *pxTopOfStack = KERNEL_DS; /* FS */
+        pxTopOfStack--;
+
+        *pxTopOfStack = KERNEL_DS; /* GS */
+  }
     #if ( configSUPPORT_FPU == 1 )
     {
         pxTopOfStack--;
@@ -329,11 +379,21 @@ void vPortSetupIDT( void )
     }
     #else
         (void) ulNum;
+
+        extern void exc0(); // Division by zero exception
+        extern void exc13(); // General Protection Fault (GPF)
+        extern void exc8();
+
+        prvSetInterruptGate(0, (ISR_Handler_t)exc0, portIDT_FLAGS);
+        prvSetInterruptGate(8, (ISR_Handler_t)exc8, portIDT_FLAGS);
+        prvSetInterruptGate(13, (ISR_Handler_t)exc13, portIDT_FLAGS);
         /* Install timer handler.  */
         prvSetInterruptGate( ( uint8_t ) portAPIC_TIMER_INT_VECTOR, vPortTimerHandler, portIDT_FLAGS );
 
         /* Install Yield handler. */
         prvSetInterruptGate( ( uint8_t ) portAPIC_YIELD_INT_VECTOR, vPortYieldCall, portIDT_FLAGS );
+
+        prvSetInterruptGate( ( uint8_t ) portSYSCALL_INT_VECTOR, vPortSysCall, portIDT_FLAGS_RING3 );
 
     #endif /* configUSE_COMMON_INTERRUPT_ENTRY_POINT */
 
@@ -410,6 +470,7 @@ BaseType_t xPortStartScheduler( void )
      * for packing to work. */
     configASSERT( sizeof( struct IDTEntry ) == portEXPECTED_IDT_ENTRY_SIZE );
 
+    (void) xWord;
     ulTopOfSystemStack =
     (uint32_t)&(ulSystemStack[ configISR_STACK_SIZE - 5 ]);
 
@@ -421,6 +482,12 @@ BaseType_t xPortStartScheduler( void )
         ulSystemStack[ xWord ] = portSTACK_WORD;
     }
 
+    /* Initialise the Global Descriptor Table (GDT). */
+    init_gdt();
+    /* Initialise the Task State Segment (TSS) to provide a stack for interrupts. */
+    init_tss( 0 );
+    /* Load the TSS into the task register. */
+    tss_load();
     /* Initialise Interrupt Descriptor Table (IDT). */
     vPortSetupIDT();
 
@@ -736,7 +803,31 @@ void *memcpy(void *dest, const void *src, size_t n)
     return dest;
 }
 
-void putchar(char c)
+int putchar(int c)
 {
-    outb(0x3F8, c);   // COM1 port
+    outb(0x3F8, (char)c);   // COM1 port
+    return c;
+}
+
+void vStartMainTask( void )
+{
+    static StaticTask_t mainTaskTCB;
+    static StackType_t mainKernelStack[ configMINIMAL_STACK_SIZE ];
+    static StackType_t mainUserStack[ configMINIMAL_STACK_SIZE ];
+    ( void ) puts( "vStartMainTask\n" );
+
+    extern void main( void * parameters );
+
+    ( void ) xTaskCreateStatic( main,
+                                "Main",
+                                configMINIMAL_STACK_SIZE * 3, /* Kernel and user stacks. */
+                                NULL,
+                                configMAX_PRIORITIES - 1U,
+                                &( mainKernelStack[ 0 ] ),
+                                &( mainUserStack[ 0 ] ),
+                                cpuPRIVILEGE_LEVEL_3,
+                                &( mainTaskTCB ) );
+
+    /* Start the scheduler. */
+    vTaskStartScheduler();
 }

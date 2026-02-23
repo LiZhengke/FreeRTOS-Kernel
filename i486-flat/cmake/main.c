@@ -42,28 +42,53 @@
 
 /* Standard includes. */
 #include <stdio.h>
+#include "utils.h"
+#include "io.h"
+#include "syscall.h"
+#include "os_helper.h"
 
 /*-----------------------------------------------------------*/
 
-static void TaskMain( void * parameters ) __attribute__( ( noreturn ) );
+#if 0  /* Currently unused */
+static void TaskUser1( void * parameters ) __attribute__( ( noreturn ) );
+#endif
 
 /*-----------------------------------------------------------*/
 
-static void TaskMain( void * parameters )
+#if 0  /* Currently unused */
+static void TaskUser1( void * parameters )
 {
+    unsigned long esp;
+    unsigned long stack_low, stack_high;
+    void *stack_base;
+    unsigned long stack_size;
     /* Unused parameters. */
     ( void ) parameters;
 
+
     for( ; ; )
     {
-        TickType_t tickCount = xTaskGetTickCount();
-        printf( "Tick TaskMain: %lu\n", ( unsigned long ) tickCount );
+        register unsigned int test asm("ebx") = 0x12345678;
 
+        TickType_t tickCount = xTaskGetTickCount();
+        esp = get_esp();
+        printf("TaskMain: tick=%lu esp=%p ebx=%x\n", tickCount, (void*)esp, test);
+        vDebugGetCurrentStackInfo(&stack_base, &stack_size);
+
+        stack_low  = (unsigned long)stack_base;
+        stack_high = stack_low + stack_size;
+        if (esp < stack_low || esp > stack_high) {
+            printf("STACK VIOLATION TaskMain! esp=%p range=[%p-%p]\n",
+                (void*)esp,
+                (void*)stack_low,
+                (void*)stack_high);
+        }
         vTaskDelay( 100 ); /* delay 100 ticks */
     }
 }
+#endif
 /*-----------------------------------------------------------*/
-
+#if 0  /* Currently unused */
 int main( void )
 {
     static StaticTask_t exampleTaskTCB;
@@ -89,6 +114,20 @@ int main( void )
 
     return 0;
 }
+#endif
+int main( void )
+{
+    uSysPrintf( "i486 flat Project\n" );
+
+    for( ; ; )
+    {
+        uSysPrintf( "main loop tick=%lu\n,CPL=%d\n", xTaskGetTickCount(), get_cpl() );
+        /* Should not reach here. */
+        uSysDelay( 1000 ); /* delay 1000 ticks */
+    }
+
+    return 0;
+}
 /*-----------------------------------------------------------*/
 
 #if ( configCHECK_FOR_STACK_OVERFLOW > 0 )
@@ -110,9 +149,12 @@ int main( void )
         /* This function will be called by each tick interrupt if
          * configUSE_TICK_HOOK is set to 1 in FreeRTOSConfig.h. */
         TickType_t tickCount = xTaskGetTickCount();
-        if( tickCount % 10 == 0 )  /* Print every 10 ticks. */
+        if( tickCount % 100 == 0 )  /* Print every 100 ticks. */
         {
-            printf( "Tick Hook: %lu\n", ( unsigned long ) tickCount );
+            printf( "Tick Hook: %lu\n", ( unsigned long ) tickCount);
+#if configENABLE_PRINT_ESP == 1
+            printf( "Tick Hook: esp=%p\n", ( void * ) get_esp() );
+#endif /* configENABLE_PRINT_ESP */
         }
     }
 #endif/* ( configUSE_TICK_HOOK != 0 ) */
@@ -125,9 +167,30 @@ int main( void )
          * configUSE_IDLE_HOOK is set to 1 in FreeRTOSConfig.h. */
         static TickType_t last = 0;
         TickType_t now = xTaskGetTickCount();
-
+#if configENABLE_PRINT_ESP == 1
+        unsigned long esp;
+        void *stack_base;
+        unsigned long stack_size;
+        unsigned long stack_low, stack_high;
+#endif /* configENABLE_PRINT_ESP == 1 */
         if (now != last) {
-            printf("Idle Hook: %lu\n", now);
+            printf("Idle: tick=%lu\n", now);
+#if configENABLE_PRINT_ESP == 1
+            esp = get_esp();
+            printf("Idle: esp=%p\n", (void*)esp);
+
+
+            /*vDebugGetCurrentStackInfo(&stack_base, &stack_size);
+            stack_low  = (unsigned long)stack_base;
+            stack_high = stack_low + stack_size;*/
+
+            if (esp < stack_low || esp > stack_high) {
+                printf("STACK VIOLATION Idle! esp=%p range=[%p-%p]\n",
+                    (void*)esp,
+                    (void*)stack_low,
+                    (void*)stack_high);
+            }
+#endif /* configENABLE_PRINT_ESP */
             last = now;
         }
     }

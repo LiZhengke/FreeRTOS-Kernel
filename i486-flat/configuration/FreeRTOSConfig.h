@@ -227,7 +227,7 @@
  * task, so its priority is set like any other task.  See
  * https://www.freertos.org/RTOS-software-timer-service-daemon-task.html  Only
  * used if configUSE_TIMERS is set to 1. */
-#define configTIMER_TASK_PRIORITY       ( configMAX_PRIORITIES - 1 )
+#define configTIMER_TASK_PRIORITY       ( configMAX_PRIORITIES - 2 )
 
 /* configTIMER_TASK_STACK_DEPTH sets the size of the stack allocated to the
  * timer task (in words, not in bytes!).  The timer task is a standard FreeRTOS
@@ -666,6 +666,39 @@
 /* Set the following INCLUDE_* constants to 1 to include the named API function,
  * or 0 to exclude the named API function.  Most linkers will remove unused
  * functions even when the constant is 1. */
+
+/**
+ * @brief Enables or disables stack overflow checking for debugging purposes.
+ *
+ * When set to 1, this configuration enables stack overflow detection mechanisms
+ * that help identify stack corruption during development and testing.
+ *
+ * Stack overflow checking adds runtime overhead and should typically be disabled
+ * in production builds. When enabled, the kernel will check for stack overflows
+ * and can trigger error handlers or assertions when corruption is detected.
+ *
+ * @note Set to 0 to disable stack overflow checking (production)
+ * @note Set to 1 to enable stack overflow checking (debug/development)
+ * @note This feature requires additional memory and CPU cycles when enabled
+ */
+#define configUSE_DEBUG_STACK_CHECK            1
+
+/* Temporaly disabled  idle task for debugging */
+#define configUSE_IDLE_TASK_DISABLED           0
+
+#define configENABLE_PRINT_ESP                 0
+
+#define portTASK_SWITCH_HOOK( pxTCB ) \
+    if ((pxTCB->xUserPrivilegeLevel & 0x03) == cpuPRIVILEGE_LEVEL_3) \
+        tss_set_esp0((uint32_t)pxTCB->pxStack);
+
+#define cpuPRIVILEGE_LEVEL_0    0 /* Highest privilege level. */
+#define cpuPRIVILEGE_LEVEL_1    1
+#define cpuPRIVILEGE_LEVEL_2    2
+#define cpuPRIVILEGE_LEVEL_3    3 /* Lowest privilege level. */
+
+#define tskPRIFLAG_CALLED       4
+
 #define INCLUDE_vTaskPrioritySet               1
 #define INCLUDE_uxTaskPriorityGet              1
 #define INCLUDE_vTaskDelete                    1

@@ -14,8 +14,11 @@ static inline uint8_t inb(uint16_t port) {
 }
 
 static inline void io_wait(void) {
-    // 经典做法：向 0x80 端口写入一个字节产生微小延迟
+    // Classic approach: write a byte to port 0x80 to create a small delay
     outb(0x80, 0);
 }
+
+/* Get the current CPU privilege level (CPL) */
+uint32_t get_cpu_cpl();
 
 #endif

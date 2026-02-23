@@ -29,6 +29,7 @@
 .file "portASM.S"
 #include "FreeRTOSConfig.h"
 #include "ISR_Support.h"
+#include "asm_macros.h"
 
     .extern pxCurrentTCB
     .extern vTaskSwitchContext
@@ -37,6 +38,7 @@
     .extern vPortAPICErrorHandler
     .extern pucPortTaskFPUContextBuffer
     .extern ulPortYieldPending
+    .extern ulSysCallDispatch
 
     .global vPortStartFirstTask
     .global vPortCentralInterruptWrapper
@@ -44,6 +46,9 @@
     .global vPortTimerHandler
     .global vPortYieldCall
     .global vPortAPICSpuriousHandler
+    .global syscall_entry
+    .global vPortSysCall
+    .global gdt_flush
 
     .text
 
@@ -53,7 +58,8 @@
 .func vPortYieldCall
 vPortYieldCall:
     /* Save general purpose registers. */
-    pusha
+    pushal
+    PUSH_SEGS()
 
     .if configSUPPORT_FPU == 1
 
@@ -98,9 +104,10 @@ vPortYieldCall:
         je      1f
         frstor  ( %eax )
         1:
-    .endif
+    .endif /* configSUPPORT_FPU */
 
-    popa
+    POP_SEGS()
+    popal
     iret
 
 .endfunc
@@ -123,8 +130,9 @@ vPortStartFirstTask:
 
     .endif /* configSUPPORT_FPU */
 
-    /* Restore general purpose registers. */
-    popa
+    POP_SEGS()
+
+    popal
     iret
 .endfunc
 /*-----------------------------------------------------------*/
@@ -134,7 +142,7 @@ vPortStartFirstTask:
 vPortAPICErrorHandlerWrapper:
     pusha
     call    vPortAPICErrorHandler
-    popa
+    popal
     /* EOI. */
     movl    $0x00, (0xFEE000B0)
     iret
@@ -146,9 +154,50 @@ vPortAPICErrorHandlerWrapper:
 vPortTimerHandler:
 
     /* Save general purpose registers. */
-    pusha
+    pushal
+    PUSH_SEGS()
 
-    /* Interrupts are not nested, so save the rest of the task context. */
+    /*
+    * Stack layout at this point (ESP → increases downward as we push):
+    * After pusha and PUSH_SEGS()():
+    *   +-----------------+
+    *   | GS              | ← ESP + 0
+    *   +-----------------+
+    *   | FS              | ← ESP + 4
+    *   +-----------------+
+    *   | ES              | ← ESP + 8
+    *   +-----------------+
+    *   | DS              | ← ESP + 12
+    *   +-----------------+
+    *   | EDI             | ← ESP + 16
+    *   +-----------------+
+    *   | ESI             | ← ESP + 20
+    *   +-----------------+
+    *   | EBP             | ← ESP + 24
+    *   +-----------------+
+    *   | ESP (original)  | ← ESP + 28
+    *   +-----------------+
+    *   | EBX             | ← ESP + 32
+    *   +-----------------+
+    *   | EDX             | ← ESP + 36
+    *   +-----------------+
+    *   | ECX             | ← ESP + 40
+    *   +-----------------+
+    *   | EAX             | ← ESP + 44
+    *   +-----------------+
+    * Hardware-pushed interrupt frame:
+    *   | EIP (return)    | ← ESP + 48
+    *   +-----------------+
+    *   | CS              | ← ESP + 52
+    *   +-----------------+
+    *   | EFLAGS          | ← ESP + 56
+    *   +-----------------+
+    *   | ESP (user)      | ← ESP + 60 (only if ring change)
+    *   +-----------------+
+    *   | SS (user)       | ← ESP + 64 (only if ring change)
+    *   +-----------------+
+     */
+      /* Interrupts are not nested, so save the rest of the task context. */
     .if configSUPPORT_FPU == 1
 
         /* If the task has a buffer allocated to save the FPU context then save the
@@ -193,7 +242,7 @@ _skip_context_switch:
 
     /* Decrement the variable used to determine if a switch to a system
     stack is necessary. */
-    sub     $1, ulInterruptNesting
+    subl    $1, ulInterruptNesting
 
     /* Stack location is first item in the TCB. */
     movl    pxCurrentTCB, %eax
@@ -213,6 +262,7 @@ _skip_context_switch:
         1:
     .endif
 
+    POP_SEGS()
     popa
 
     .if configUSE_APIC == 1
@@ -273,6 +323,140 @@ vPortAPICSpuriousHandler:
 
 .endfunc
 
+    .align 4
+    .func vPortSysCall
+    vPortSysCall:
+        cli
+        pushal
+        PUSH_SEGS()
+
+         /*
+         * Stack layout at this point (ESP → increases downward as we push):
+         *   +-----------------+
+         *   | GS              | ← ESP + 0 (top of stack after pushal)
+         *   +-----------------+
+         *   | FS              | ← ESP + 4
+         *   +-----------------+
+         *   | ES              | ← ESP + 8
+         *   +-----------------+
+         *   | DS              | ← ESP + 12
+         *   +-----------------+
+         *   | EDI             | ← ESP + 16
+         *   +-----------------+
+         *   | ESI             | ← ESP + 20
+         *   +-----------------+
+         *   | EBP             | ← ESP + 24
+         *   +-----------------+
+         *   | ESP (original)  | ← ESP + 28
+         *   +-----------------+
+         *   | EBX             | ← ESP + 32
+         *   +-----------------+
+         *   | EDX             | ← ESP + 36
+         *   +-----------------+
+         *   | ECX             | ← ESP + 40
+         *   +-----------------+
+         *   | EAX             | ← ESP + 44
+         *   +-----------------+ (ESP points here)
+          */
+
+        mov     $0x10, %ax              /* KERNEL_DS 0x10 */
+        mov     %ax, %ds
+        mov     %ax, %es
+        mov     %ax, %fs
+        mov     %ax, %gs
+
+        /* pushl %esp */                /* Parameter: regs_t * */
+        call    uSysCallDispatch
+        /* addl $4, %esp */
+
+        POP_SEGS()
+
+         /*
+         * Stack layout at this point (ESP → increases downward as we push):
+         *   +-----------------+
+         *   | GS              | ← ESP + 32 (top of stack after pushal)
+         *   +-----------------+
+         *   | FS              | ← ESP + 28
+         *   +-----------------+
+         *   | ES              | ← ESP + 24
+         *   +-----------------+
+         *   | DS              | ← ESP + 20
+         *   +-----------------+
+         *   | EDI             | ← ESP + 16
+         *   +-----------------+
+         *   | ESI             | ← ESP + 12
+         *   +-----------------+
+         *   | EBP             | ← ESP + 8
+         *   +-----------------+
+         *   | ESP (original)  | ← ESP + 4
+         *   +-----------------+
+         *   | EBX             | ← ESP (current value after pushal)
+         *   +-----------------+
+         *   | EDX             |
+         *   +-----------------+
+         *   | EDX             | ← ESP + 4
+         *   | ECX             |
+         *   +-----------------+
+         *   | EAX             |
+         *   +-----------------+ (ESP points here)
+          */
+        popal
+
+        sti
+        iret
+    .endfunc
+
+/* GDT flush function - loads new GDT and reloads segment registers */
+.align 4
+.func gdt_flush
+gdt_flush:
+    movl 4(%esp), %eax      /* Get the pointer to the GDT descriptor */
+    lgdt (%eax)             /* Load the new GDT */
+
+    /* Reload all segment registers */
+    movw $0x10, %ax         /* 0x10 is the offset in the GDT to our data segment */
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
+    movw %ax, %ss
+
+    /* Far jump to reload CS with our new code segment (0x08) */
+    ljmp $0x08, $flush_cs
+flush_cs:
+    ret
+.endfunc
+
+.align 4
+.func tsk_stack_align
+tsk_stack_align:
+    /* Find the TCB. */
+    movl    pxCurrentTCB, %eax
+    movl    8(%eax), %edx       # presumably xPrivilegeLevel, but could also be tskPRIVILEGE_BIT in which case the check is the same
+
+    # privilege?
+    movl    %edx, %ecx
+    andl    $cpuPRIVILEGE_LEVEL_3, %ecx
+    cmp     $cpuPRIVILEGE_LEVEL_3, %ecx
+    jne     ring0_task
+
+    # created?
+    andl    $tskPRIFLAG_CALLED, %edx
+    cmp     $tskPRIFLAG_CALLED, %edx
+    je      task_already_created
+
+    /* If the task is a user mode task, then switch to the kernel stack before setting the yield pending flag. */
+    movl    $2, %eax # Return 2 to indicate the ring 3 task is being created for the first time, so stack alignment is required.
+    ret
+ring0_task:
+    movl   $0, %eax # Return 0 to indicate ring0 task, which does not require stack alignment.
+    ret
+
+task_already_created:
+    movl   $1, %eax # Return 1 to indicate the ring 3 task has already been created, so stack alignment is required.
+    ret
+
+.endfunc
 .end
 
 .section .note.GNU-stack,"",@progbits

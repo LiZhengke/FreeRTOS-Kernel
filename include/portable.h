@@ -139,7 +139,9 @@
                                              void * pvParameters ) PRIVILEGED_FUNCTION;
     #else
         StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
+                                             StackType_t * pxTopOfUserStack,
                                              TaskFunction_t pxCode,
+                                             cpu_privilege_level_t xUserPrivilegeLevel,
                                              void * pvParameters ) PRIVILEGED_FUNCTION;
     #endif
 #endif /* if ( portUSING_MPU_WRAPPERS == 1 ) */

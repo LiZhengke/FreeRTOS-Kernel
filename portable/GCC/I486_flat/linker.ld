@@ -17,7 +17,7 @@ SECTIONS
     /* -------------------- */
     .text : ALIGN(4)
     {
-        KEEP(*(.multiboot))      /* 如果你以后用 multiboot */
+        KEEP(*(.multiboot))      /* If you use multiboot in the future */
         *(.text*)
         *(.rodata*)
     } > RAM

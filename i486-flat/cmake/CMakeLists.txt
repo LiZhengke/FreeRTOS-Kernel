@@ -70,7 +70,6 @@ target_compile_options(freertos_kernel PRIVATE
 add_executable(${PROJECT_NAME}
     ${PORT_I486_FLAT_PATH}/start.S
     main.c
-    stdprint.c
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

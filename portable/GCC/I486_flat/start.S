@@ -14,7 +14,7 @@ _start:
     mov $__stack_top, %esp
     mov $__stack_top, %ebp
 
-    call main
+    call vStartMainTask
 
 halt:
     hlt

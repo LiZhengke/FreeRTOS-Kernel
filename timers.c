@@ -237,7 +237,6 @@
     BaseType_t xTimerCreateTimerTask( void )
     {
         BaseType_t xReturn = pdFAIL;
-
         traceENTER_xTimerCreateTimerTask();
 
         /* This function is called when the scheduler is started if
@@ -278,6 +277,7 @@
                                                       configTIMER_TASK_STACK_DEPTH,
                                                       NULL,
                                                       ( ( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,
+                                                      ( cpu_privilege_level_t ) 0,
                                                       configTIMER_SERVICE_TASK_CORE_AFFINITY,
                                                       &xTimerTaskHandle );
                 }
@@ -298,6 +298,8 @@
                                                           NULL,
                                                           ( ( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,
                                                           pxTimerTaskStackBuffer,
+                                                          NULL,
+                                                          cpuPRIVILEGE_LEVEL_0,
                                                           pxTimerTaskTCBBuffer );
 
                     if( xTimerTaskHandle != NULL )
