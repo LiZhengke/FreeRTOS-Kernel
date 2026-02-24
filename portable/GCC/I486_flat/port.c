@@ -388,7 +388,7 @@ void vPortSetupIDT( void )
         prvSetInterruptGate(8, (ISR_Handler_t)exc8, portIDT_FLAGS);
         prvSetInterruptGate(13, (ISR_Handler_t)exc13, portIDT_FLAGS);
         /* Install timer handler.  */
-        /*prvSetInterruptGate( ( uint8_t ) portAPIC_TIMER_INT_VECTOR, vPortTimerHandler, portIDT_FLAGS );*/
+        prvSetInterruptGate( ( uint8_t ) portAPIC_TIMER_INT_VECTOR, vPortTimerHandler, portIDT_FLAGS );
 
         /* Install Yield handler. */
         prvSetInterruptGate( ( uint8_t ) portAPIC_YIELD_INT_VECTOR, vPortYieldCall, portIDT_FLAGS );
