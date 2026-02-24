@@ -2120,6 +2120,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                  * the suspended state - make this the current task. */
                 pxCurrentTCB = pxNewTCB;
 
+                portSETUP_TCB_TSS( pxCurrentTCB );
                 if( uxCurrentNumberOfTasks == ( UBaseType_t ) 1 )
                 {
                     /* This is the first task to be created so do the preliminary

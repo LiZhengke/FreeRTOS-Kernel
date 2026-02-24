@@ -388,7 +388,7 @@ void vPortSetupIDT( void )
         prvSetInterruptGate(8, (ISR_Handler_t)exc8, portIDT_FLAGS);
         prvSetInterruptGate(13, (ISR_Handler_t)exc13, portIDT_FLAGS);
         /* Install timer handler.  */
-        prvSetInterruptGate( ( uint8_t ) portAPIC_TIMER_INT_VECTOR, vPortTimerHandler, portIDT_FLAGS );
+        /*prvSetInterruptGate( ( uint8_t ) portAPIC_TIMER_INT_VECTOR, vPortTimerHandler, portIDT_FLAGS );*/
 
         /* Install Yield handler. */
         prvSetInterruptGate( ( uint8_t ) portAPIC_YIELD_INT_VECTOR, vPortYieldCall, portIDT_FLAGS );
@@ -484,8 +484,6 @@ BaseType_t xPortStartScheduler( void )
 
     /* Initialise the Global Descriptor Table (GDT). */
     init_gdt();
-    /* Initialise the Task State Segment (TSS) to provide a stack for interrupts. */
-    init_tss( 0 );
     /* Load the TSS into the task register. */
     tss_load();
     /* Initialise Interrupt Descriptor Table (IDT). */
@@ -808,19 +806,23 @@ int putchar(int c)
     outb(0x3F8, (char)c);   // COM1 port
     return c;
 }
+#define STACK_SIZE (configMINIMAL_STACK_SIZE * 4) /* Kernel and user stacks. */
 
 void vStartMainTask( void )
 {
     static StaticTask_t mainTaskTCB;
-    static StackType_t mainKernelStack[ configMINIMAL_STACK_SIZE ];
-    static StackType_t mainUserStack[ configMINIMAL_STACK_SIZE ];
+    static StackType_t mainKernelStack[ STACK_SIZE ];
+    static StackType_t mainUserStack[ STACK_SIZE ];
     ( void ) puts( "vStartMainTask\n" );
 
     extern void main( void * parameters );
 
+    /* Initialise the Task State Segment (TSS) to provide a stack for interrupts. */
+    ( void ) puts( "init_tss\n" );
+    init_tss( 0 );
     ( void ) xTaskCreateStatic( main,
                                 "Main",
-                                configMINIMAL_STACK_SIZE * 3, /* Kernel and user stacks. */
+                                STACK_SIZE, /* Kernel and user stacks. */
                                 NULL,
                                 configMAX_PRIORITIES - 1U,
                                 &( mainKernelStack[ 0 ] ),

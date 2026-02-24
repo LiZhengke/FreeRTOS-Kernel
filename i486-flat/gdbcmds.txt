@@ -17,7 +17,8 @@ b vPortSetupIDT
 b vStartMainTask
 b xTaskCreateStatic
 b prvCreateStaticTask
-
+b uSysCallDispatch
+b uSysPrintf
 # 自动观察
 display/i $eip
 #display/x $eflags

@@ -12,4 +12,5 @@ void tss_load(void);
 uint32_t tss_get_size(void);
 uint32_t tss_get_address(void);
 void tss_set_esp0(uint32_t esp0);
+uint32_t tss_get_esp0(void);
 #endif /* TSS_H */

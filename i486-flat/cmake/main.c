@@ -117,11 +117,11 @@ int main( void )
 #endif
 int main( void )
 {
-    uSysPrintf( "i486 flat Project\n" );
+    uSysPrintf( "i486\n" );
 
     for( ; ; )
     {
-        uSysPrintf( "main loop tick=%lu\n,CPL=%d\n", xTaskGetTickCount(), get_cpl() );
+        /*uSysPrintf( "main loop tick=%lu\n,CPL=%d\n", xTaskGetTickCount(), get_cpl() );*/
         /* Should not reach here. */
         uSysDelay( 1000 ); /* delay 1000 ticks */
     }

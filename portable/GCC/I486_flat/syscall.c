@@ -6,6 +6,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "tss.h"
 
 // Forward declaration
 extern int printf(const char *__restrict __format, ...);
