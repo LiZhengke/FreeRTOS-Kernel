@@ -316,7 +316,8 @@ add_library(freertos_kernel_port OBJECT
         GCC/I486_flat/exception.S
         GCC/I486_flat/interrupt.c
         GCC/I486_flat/stdprint.c
-        GCC/I486_flat/syscall.c>
+        GCC/I486_flat/syscall.c
+        MemMang/heap_4.c>
 
     # Xilinx MicroBlaze soft core ports for GCC
     $<$<STREQUAL:${FREERTOS_PORT},GCC_MICROBLAZE>:

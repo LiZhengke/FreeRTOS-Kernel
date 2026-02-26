@@ -96,7 +96,10 @@ static void TaskUser1( void * parameters )
 int main( void )
 {
     uSysPrintf( "i486\n" );
-    uSysTaskCreate(TaskUser1, "TaskUser1", configMINIMAL_STACK_SIZE, configMAX_PRIORITIES - 2U, NULL);
+    if(uSysTaskCreate(TaskUser1, "TaskUser1", configMINIMAL_STACK_SIZE, configMAX_PRIORITIES - 2U, NULL) != 0) {
+        uSysPrintf( "Failed to create TaskUser1\n" );
+        return -1;
+    }
 
     for( ; ; )
     {
