@@ -295,9 +295,11 @@ BaseType_t xPortInstallInterruptHandler( ISR_Handler_t pxHandler,
 #define portASSERT_IF_INTERRUPT_PRIORITY_INVALID()    configASSERT( ( portAPIC_PROCESSOR_PRIORITY ) <= ( portMAX_API_CALL_PRIORITY ) )
 
 #define portSETUP_TCB_TSS( pxTCB ) \
-    printf( "portSETUP_TCB_TSS: setting TSS esp0 to %p for task %s\n", ( void * ) ( pxTCB->pxStack ), pxTCB->pcTaskName ); \
-    tss_set_esp0( ( uint32_t ) ( pxTCB->pxStack ) )
-
+{ \
+    uint32_t*   pxTopOfStack = (uint32_t*)( pxTCB->pxStack + pxTCB->xUserStackDepth - 1 ); \
+    printf( "portSETUP_TCB_TSS: setting TSS esp0 to %p for task %s\n", ( void * ) pxTopOfStack, pxTCB->pcTaskName ); \
+    tss_set_esp0( ( uint32_t ) pxTopOfStack ); \
+}
 /* *INDENT-OFF* */
 #ifdef __cplusplus
     }

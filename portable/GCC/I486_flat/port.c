@@ -814,6 +814,7 @@ void vStartMainTask( void )
     static StackType_t mainKernelStack[ STACK_SIZE ];
     static StackType_t mainUserStack[ STACK_SIZE ];
     ( void ) puts( "vStartMainTask\n" );
+    printf( "mainKernelStack=%p mainUserStack=%p\n", ( void * ) mainKernelStack, ( void * ) mainUserStack );
 
     extern void main( void * parameters );
 
@@ -822,7 +823,7 @@ void vStartMainTask( void )
     init_tss( 0 );
     ( void ) xTaskCreateStatic( main,
                                 "Main",
-                                STACK_SIZE, /* Kernel and user stacks. */
+                                STACK_SIZE / 4, /* Kernel and user stacks. */
                                 NULL,
                                 configMAX_PRIORITIES - 1U,
                                 &( mainKernelStack[ 0 ] ),

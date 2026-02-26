@@ -121,9 +121,10 @@ int main( void )
 
     for( ; ; )
     {
+        uSysPrintf( "main loop CPL=%d\n", get_cpl() );
         /*uSysPrintf( "main loop tick=%lu\n,CPL=%d\n", xTaskGetTickCount(), get_cpl() );*/
         /* Should not reach here. */
-        uSysDelay( 1000 ); /* delay 1000 ticks */
+        uSysDelay( 100 ); /* delay 100 ticks */
     }
 
     return 0;
@@ -151,7 +152,7 @@ int main( void )
         TickType_t tickCount = xTaskGetTickCount();
         if( tickCount % 100 == 0 )  /* Print every 100 ticks. */
         {
-            printf( "Tick Hook: %lu\n", ( unsigned long ) tickCount);
+            printf( "Tick Hook: %lu cpl=%d\n", ( unsigned long ) tickCount, get_cpl() );
 #if configENABLE_PRINT_ESP == 1
             printf( "Tick Hook: esp=%p\n", ( void * ) get_esp() );
 #endif /* configENABLE_PRINT_ESP */
@@ -173,8 +174,8 @@ int main( void )
         unsigned long stack_size;
         unsigned long stack_low, stack_high;
 #endif /* configENABLE_PRINT_ESP == 1 */
-        if (now != last) {
-            printf("Idle: tick=%lu\n", now);
+        if (now == last + 100) {
+            printf("Idle: tick=%lu cpl=%d\n", now, get_cpl());
 #if configENABLE_PRINT_ESP == 1
             esp = get_esp();
             printf("Idle: esp=%p\n", (void*)esp);
