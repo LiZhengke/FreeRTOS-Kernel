@@ -287,7 +287,7 @@
  * or heap_4.c are included in the build.  This value is defaulted to 4096 bytes
  * but it must be tailored to each application.  Note the heap will appear in
  * the .bss section.  See https://www.freertos.org/a00111.html. */
-#define configTOTAL_HEAP_SIZE                        ( ( size_t ) ( 10 * 1024 ) )
+#define configTOTAL_HEAP_SIZE       ((size_t)(&__heap_end - &__heap_start))
 
 /* Set configAPPLICATION_ALLOCATED_HEAP to 1 to have the application allocate
  * the array used as the FreeRTOS heap.  Set to 0 to have the linker allocate
@@ -715,9 +715,5 @@
 #define INCLUDE_xTaskGetHandle                 0
 #define INCLUDE_xTaskResumeFromISR             1
 
-#ifndef __ASSEMBLER__
-extern uint8_t __heap_start[];
-extern uint8_t __heap_end[];
-#endif
 
 #endif /* FREERTOS_CONFIG_H */

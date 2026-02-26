@@ -153,8 +153,15 @@ static int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint3
     UBaseType_t priority = (UBaseType_t)a3;
     void *pvParameters = (void *)a4;
 
-    if (taskFunction == NULL)
+    if (taskFunction == NULL){
+        printf("sys_task_create: taskFunction is NULL\n");
         return -EINVAL;
+    }
+
+    if (priority >= configMAX_PRIORITIES) {
+        printf("sys_task_create: invalid priority %u\n", priority);
+        return -EINVAL;
+    }
 
     if (stackDepth == 0)
         stackDepth = configMINIMAL_STACK_SIZE;
@@ -165,6 +172,8 @@ static int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint3
     StackType_t *pxUserStack = (StackType_t *)pvPortMalloc(stackDepth * sizeof(StackType_t));
 
     if (pxTCB == NULL || pxKernelStack == NULL || pxUserStack == NULL) {
+        printf("Failed to allocate memory for task creation\n");
+        printf("pxTCB=%p pxKernelStack=%p pxUserStack=%p\n", (void *)pxTCB, (void *)pxKernelStack, (void *)pxUserStack);
         if (pxTCB) vPortFree(pxTCB);
         if (pxKernelStack) vPortFree(pxKernelStack);
         if (pxUserStack) vPortFree(pxUserStack);
@@ -182,12 +191,14 @@ static int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint3
                                 pxTCB );
 
     if (handle == NULL) {
+        printf("Failed to create task\n");
         vPortFree(pxTCB);
         vPortFree(pxKernelStack);
         vPortFree(pxUserStack);
         return -EINVAL;
     }
 
+    printf("Task '%s' created successfully with priority %u\n", taskName, priority);
     return 0;
 }
 

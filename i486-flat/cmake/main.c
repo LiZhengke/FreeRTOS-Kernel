@@ -97,8 +97,8 @@ int main( void )
 {
     uSysPrintf( "i486\n" );
     if(uSysTaskCreate(TaskUser1, "TaskUser1", configMINIMAL_STACK_SIZE, configMAX_PRIORITIES - 2U, NULL) != 0) {
-        uSysPrintf( "Failed to create TaskUser1\n" );
-        return -1;
+        /*uSysPrintf( "Failed to create TaskUser1\n" );
+        return -1;*/
     }
 
     for( ; ; )
