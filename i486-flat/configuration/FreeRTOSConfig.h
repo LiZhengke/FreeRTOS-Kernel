@@ -690,7 +690,7 @@
 
 #define portTASK_SWITCH_HOOK( pxTCB ) \
     if ((pxTCB->xUserPrivilegeLevel & 0x03) == cpuPRIVILEGE_LEVEL_3) \
-        tss_set_esp0((uint32_t)(pxTCB->pxStack + pxTCB->xUserStackDepth - 1));
+        tss_set_esp0((uint32_t)(pxTCB->pxStack + pxTCB->xUserStackDepth));
 
 #define cpuPRIVILEGE_LEVEL_0    0 /* Highest privilege level. */
 #define cpuPRIVILEGE_LEVEL_1    1

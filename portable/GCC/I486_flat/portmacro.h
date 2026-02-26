@@ -296,7 +296,7 @@ BaseType_t xPortInstallInterruptHandler( ISR_Handler_t pxHandler,
 
 #define portSETUP_TCB_TSS( pxTCB ) \
 { \
-    uint32_t*   pxTopOfStack = (uint32_t*)( pxTCB->pxStack + pxTCB->xUserStackDepth - 1 ); \
+    uint32_t*   pxTopOfStack = (uint32_t*)( pxTCB->pxStack + pxTCB->xUserStackDepth ); \
     printf( "portSETUP_TCB_TSS: setting TSS esp0 to %p for task %s\n", ( void * ) pxTopOfStack, pxTCB->pcTaskName ); \
     tss_set_esp0( ( uint32_t ) pxTopOfStack ); \
 }
