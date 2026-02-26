@@ -55,7 +55,6 @@ static void TaskUser1( void * parameters ) __attribute__( ( noreturn ) );
 
 /*-----------------------------------------------------------*/
 
-#if 0  /* Currently unused */
 static void TaskUser1( void * parameters )
 {
     unsigned long esp;
@@ -64,11 +63,17 @@ static void TaskUser1( void * parameters )
     unsigned long stack_size;
     /* Unused parameters. */
     ( void ) parameters;
+    ( void ) stack_size;
+    ( void ) esp;
+    ( void ) stack_base;
+    ( void ) stack_low;
+    ( void ) stack_high;
+
 
 
     for( ; ; )
     {
-        register unsigned int test asm("ebx") = 0x12345678;
+        /*register unsigned int test asm("ebx") = 0x12345678;
 
         TickType_t tickCount = xTaskGetTickCount();
         esp = get_esp();
@@ -82,47 +87,20 @@ static void TaskUser1( void * parameters )
                 (void*)esp,
                 (void*)stack_low,
                 (void*)stack_high);
-        }
-        vTaskDelay( 100 ); /* delay 100 ticks */
+        }*/
+        uSysPrintf( "TaskUser1 tick=%lu cpl=%d\n", uSysGetTickCount(), get_cpl() );
+        vTaskDelay( 50 ); /* delay 50 ticks */
     }
 }
-#endif
 /*-----------------------------------------------------------*/
-#if 0  /* Currently unused */
-int main( void )
-{
-    static StaticTask_t exampleTaskTCB;
-    static StackType_t exampleTaskStack[ configMINIMAL_STACK_SIZE ];
-
-    ( void ) puts( "i486 flat Project\n" );
-
-    ( void ) xTaskCreateStatic( TaskMain,
-                                "TaskMain",
-                                configMINIMAL_STACK_SIZE,
-                                NULL,
-                                configMAX_PRIORITIES - 1U,
-                                &( exampleTaskStack[ 0 ] ),
-                                &( exampleTaskTCB ) );
-
-    /* Start the scheduler. */
-    vTaskStartScheduler();
-
-    for( ; ; )
-    {
-        /* Should not reach here. */
-    }
-
-    return 0;
-}
-#endif
 int main( void )
 {
     uSysPrintf( "i486\n" );
+    uSysTaskCreate(TaskUser1, "TaskUser1", configMINIMAL_STACK_SIZE, configMAX_PRIORITIES - 2U, NULL);
 
     for( ; ; )
     {
-        uSysPrintf( "main loop CPL=%d\n", get_cpl() );
-        /*uSysPrintf( "main loop tick=%lu\n,CPL=%d\n", xTaskGetTickCount(), get_cpl() );*/
+        uSysPrintf( "main loop tick=%lu cpl=%d\n", uSysGetTickCount(), get_cpl() );
         /* Should not reach here. */
         uSysDelay( 100 ); /* delay 100 ticks */
     }

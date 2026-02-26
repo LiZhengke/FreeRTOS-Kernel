@@ -24,6 +24,7 @@ static int sys_putc(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
 static int sys_printf(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_panic(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
+static int sys_tick_count(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 
 syscall_t syscall_table[SYS_MAX] = {
     sys_yield,
@@ -35,7 +36,8 @@ syscall_t syscall_table[SYS_MAX] = {
     sys_putc,
     sys_printf,
     sys_panic,
-    sys_task_create
+    sys_task_create,
+    sys_tick_count
 };
 
 
@@ -145,27 +147,54 @@ static int sys_printf(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a
 
 static int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
 {
-    (void)a0; (void)a1; (void)a2; (void)a3; (void)a4;
-    // TODO: Implement task creation using FreeRTOS xTaskCreate
-    static StaticTask_t taskTCB;
-    static StackType_t taskKernelStack[ configMINIMAL_STACK_SIZE ];
-    static StackType_t taskUserStack[ configMINIMAL_STACK_SIZE ];
-
     TaskFunction_t taskFunction = (TaskFunction_t)a0;
     const char *taskName = (const char *)a1;
-    uint16_t stackDepth = (uint16_t)a2;
+    configSTACK_DEPTH_TYPE stackDepth = (configSTACK_DEPTH_TYPE)a2;
     UBaseType_t priority = (UBaseType_t)a3;
-    // a4 is reserved for future use
+    void *pvParameters = (void *)a4;
+
+    if (taskFunction == NULL)
+        return -EINVAL;
+
+    if (stackDepth == 0)
+        stackDepth = configMINIMAL_STACK_SIZE;
+
+    /* Dynamically allocate TCB and stacks so multiple tasks can be created. */
+    StaticTask_t *pxTCB = (StaticTask_t *)pvPortMalloc(sizeof(StaticTask_t));
+    StackType_t *pxKernelStack = (StackType_t *)pvPortMalloc(stackDepth * sizeof(StackType_t));
+    StackType_t *pxUserStack = (StackType_t *)pvPortMalloc(stackDepth * sizeof(StackType_t));
+
+    if (pxTCB == NULL || pxKernelStack == NULL || pxUserStack == NULL) {
+        if (pxTCB) vPortFree(pxTCB);
+        if (pxKernelStack) vPortFree(pxKernelStack);
+        if (pxUserStack) vPortFree(pxUserStack);
+        return -EINVAL;
+    }
+
     TaskHandle_t handle = xTaskCreateStatic( taskFunction,
                                 taskName,
                                 stackDepth,
-                                NULL,
+                                pvParameters,
                                 priority,
-                                &( taskKernelStack[ 0 ] ),
-                                &( taskUserStack[ 0 ] ),
+                                pxKernelStack,
+                                pxUserStack,
                                 cpuPRIVILEGE_LEVEL_3,
-                                &( taskTCB ) );
-    return handle ? 0 : -EINVAL;
+                                pxTCB );
+
+    if (handle == NULL) {
+        vPortFree(pxTCB);
+        vPortFree(pxKernelStack);
+        vPortFree(pxUserStack);
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
+static int sys_tick_count(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
+{
+    (void)a0; (void)a1; (void)a2; (void)a3; (void)a4;
+    return (int)xTaskGetTickCount();
 }
 
 /*--------------------------------------------------------------------- */
@@ -193,6 +222,37 @@ int32_t uSysDelay(uint16_t ticks)
         : "=a"(ret)
         : "a"(SYS_DELAY),   // eax: syscall number
           "b"(ticks)        // ebx: argument
+        : "memory"
+    );
+    return ret;
+}
+
+int32_t uSysTaskCreate(void (*taskFunction)(void *), const char *taskName,
+                       uint16_t stackDepth, uint32_t priority,
+                       void *pvParameters)
+{
+    int32_t ret;
+    asm volatile (
+        "int $" STR(SYSINT)
+        : "=a"(ret)
+        : "a"(SYS_TASK_CREATE),
+          "b"(taskFunction),
+          "c"(taskName),
+          "d"((uint32_t)stackDepth),
+          "S"(priority),
+          "D"(pvParameters)
+        : "memory"
+    );
+    return ret;
+}
+
+int32_t uSysGetTickCount(void)
+{
+    int32_t ret;
+    asm volatile (
+        "int $" STR(SYSINT)
+        : "=a"(ret)
+        : "a"(SYS_TICK_COUNT)
         : "memory"
     );
     return ret;

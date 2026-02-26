@@ -22,6 +22,7 @@ enum {
     SYS_PRINTF,
     SYS_PANIC,
     SYS_TASK_CREATE,
+    SYS_TICK_COUNT,
     SYS_MAX
 };
 
@@ -30,5 +31,9 @@ int os_err_to_errno(OS_ERR err);
 
 int32_t uSysPutChar(char c);
 int32_t uSysDelay(uint16_t ticks);
+int32_t uSysTaskCreate(void (*taskFunction)(void *), const char *taskName,
+                       uint16_t stackDepth, uint32_t priority,
+                       void *pvParameters);
+int32_t uSysGetTickCount(void);
 int32_t uSysPrintf(const char *fmt, ...);
 #endif /* SYSCALL_H */
