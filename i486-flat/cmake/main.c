@@ -89,7 +89,45 @@ static void TaskUser1( void * parameters )
                 (void*)stack_high);
         }*/
         uSysPrintf( "TaskUser1 tick=%lu cpl=%d\n", uSysGetTickCount(), get_cpl() );
-        vTaskDelay( 50 ); /* delay 50 ticks */
+        uSysDelay( 50 ); /* delay 50 ticks */
+    }
+}
+
+static void TaskUser2( void * parameters )
+{
+    unsigned long esp;
+    unsigned long stack_low, stack_high;
+    void *stack_base;
+    unsigned long stack_size;
+    /* Unused parameters. */
+    ( void ) parameters;
+    ( void ) stack_size;
+    ( void ) esp;
+    ( void ) stack_base;
+    ( void ) stack_low;
+    ( void ) stack_high;
+
+
+
+    for( ; ; )
+    {
+        /*register unsigned int test asm("ebx") = 0x12345678;
+
+        TickType_t tickCount = xTaskGetTickCount();
+        esp = get_esp();
+        printf("TaskMain: tick=%lu esp=%p ebx=%x\n", tickCount, (void*)esp, test);
+        vDebugGetCurrentStackInfo(&stack_base, &stack_size);
+
+        stack_low  = (unsigned long)stack_base;
+        stack_high = stack_low + stack_size;
+        if (esp < stack_low || esp > stack_high) {
+            printf("STACK VIOLATION TaskMain! esp=%p range=[%p-%p]\n",
+                (void*)esp,
+                (void*)stack_low,
+                (void*)stack_high);
+        }*/
+        uSysPrintf( "TaskUser2 tick=%lu cpl=%d\n", uSysGetTickCount(), get_cpl() );
+        uSysDelay( 50 ); /* delay 50 ticks */
     }
 }
 /*-----------------------------------------------------------*/
@@ -97,8 +135,12 @@ int main( void )
 {
     uSysPrintf( "i486\n" );
     if(uSysTaskCreate(TaskUser1, "TaskUser1", configMINIMAL_STACK_SIZE, configMAX_PRIORITIES - 2U, NULL) != 0) {
-        /*uSysPrintf( "Failed to create TaskUser1\n" );
-        return -1;*/
+        uSysPrintf( "Failed to create TaskUser1\n" );
+        return -1;
+    }
+    if(uSysTaskCreate(TaskUser2, "TaskUser2", configMINIMAL_STACK_SIZE, configMAX_PRIORITIES - 3U, NULL) != 0) {
+        uSysPrintf( "Failed to create TaskUser2\n" );
+        return -1;
     }
 
     for( ; ; )

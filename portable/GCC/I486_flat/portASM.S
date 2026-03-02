@@ -369,6 +369,11 @@ vPortAPICSpuriousHandler:
         call    uSysCallDispatch
         /* addl $4, %esp */
 
+        /* Store the syscall return value (in EAX) into the saved-EAX slot
+         * on the stack so that popal restores it instead of the original
+         * EAX (which held the syscall number). */
+        movl    %eax, 44(%esp)
+
         POP_SEGS()
 
          /*
