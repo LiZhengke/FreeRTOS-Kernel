@@ -813,7 +813,7 @@ void vStartMainTask( void )
     static StaticTask_t mainTaskTCB;
     static StackType_t mainKernelStack[ STACK_SIZE ];
     static StackType_t mainUserStack[ STACK_SIZE ];
-    ( void ) puts( "vStartMainTask\n" );
+    printf( "vStartMainTask %p\n", ( void * ) &vStartMainTask );
     printf( "mainKernelStack=%p mainUserStack=%p\n", ( void * ) mainKernelStack, ( void * ) mainUserStack );
 
     extern void main( void * parameters );

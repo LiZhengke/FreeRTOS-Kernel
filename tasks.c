@@ -367,6 +367,26 @@
         }                                                                                    \
     } while( 0 )
 #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
+
+   
+/*
+ * The members of the TCB are arranged in a way that ensures the compiler will
+ * generate efficient code to access them.  The order of the first few members
+ * is critical to ensure efficient access to the task's context when switching
+ * between tasks.  The order of the remaining members is less critical but is
+ * still arranged to ensure efficient access to commonly used members.
+ */
+typedef struct mm_struct
+{
+    uint32_t *pgd;       /**< Page directory virtual address */
+    uint32_t  cr3;       /**< Page directory physical address */
+
+    uint32_t  start_code;
+    uint32_t  end_code;
+
+    uint32_t  user_stack_top; /**< Top of user stack. */
+
+} mm_t;
 /*-----------------------------------------------------------*/
 
 /*
@@ -381,6 +401,7 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     size_t xUserStackDepth;                       /**< The size of the stack allocated to the task.  This is 0 if the stack was statically allocated. */
     volatile StackType_t * pxUserStack;                   /**< Points to the start of the user stack. */
     cpu_privilege_level_t xUserPrivilegeLevel;  /**< The privilege level of the user stack. */
+    mm_t *mm; /**< The memory management structure for the task. */
 
     #if ( portUSING_MPU_WRAPPERS == 1 )
         xMPU_SETTINGS xMPUSettings; /**< The MPU settings are defined as part of the port layer.  THIS MUST BE THE SECOND MEMBER OF THE TCB STRUCT. */
@@ -455,6 +476,7 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     #if ( configUSE_POSIX_ERRNO == 1 )
         int iTaskErrno;
     #endif
+
 } tskTCB;
 
 /* The old tskTCB name is maintained above then typedefed to the new TCB_t name
