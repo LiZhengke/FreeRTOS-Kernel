@@ -37,6 +37,7 @@
 #include "io.h"
 #include "i8259.h"
 #include "tss.h"
+#include "port.h"
 
 uint8_t ucHeap[1] __attribute__((section(".heap")));
 

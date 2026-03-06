@@ -33,6 +33,7 @@
 .code32
 .align 4
 
+.if configUSE_PAGE_ASMBLE_CODE == 1
 /*
  * Boot page directory — 4096 bytes, 4K-aligned.
  * Placed in .boot so it is available before we clear BSS.
@@ -40,10 +41,11 @@
 .align 4096
 boot_page_directory:
     .fill 1024, 4, 0                    /* 1024 entries, all zero initially */
+.endif /* configUSE_PAGE_ASMBLE_CODE */
 
 _start:
     cli
-
+.if configUSE_PAGE_ASMBLE_CODE == 1
     /* ----- 1. Build boot page directory (identity + high-half) ----- */
     /* boot_page_directory has VMA == LMA (physical), so use it directly */
     leal boot_page_directory, %edi
@@ -84,7 +86,8 @@ _start:
     movl %cr0, %eax
     orl  $0x80000000, %eax              /* CR0.PG = bit 31 */
     movl %eax, %cr0
-
+.endif /* configUSE_PAGE_ASMBLE_CODE */
+    call init_paging
     /* ----- 5. Jump to high-address code ----- */
     leal _higher_half, %eax
     jmp  *%eax
@@ -95,6 +98,7 @@ _start:
 .section .text
 .align 4
 _higher_half:
+.if configUSE_PAGE_ASMBLE_CODE == 1
     /* ----- 6. Remove identity mapping (PDE[0] and PDE[1]) ----- */
     /* boot_page_directory is in .boot (physical VMA), but thanks to
      * our high-half mapping, phys addr N is also accessible at
@@ -109,6 +113,7 @@ _higher_half:
     /* Flush TLB by reloading CR3 */
     movl %cr3, %eax
     movl %eax, %cr3
+.endif /* configUSE_PAGE_ASMBLE_CODE */
 
     /* ----- 7. Set up kernel stack (virtual address) ----- */
     movl $__stack_top, %esp

@@ -692,6 +692,8 @@
     if ((pxTCB->xUserPrivilegeLevel & 0x03) == cpuPRIVILEGE_LEVEL_3) \
         tss_set_esp0((uint32_t)(pxTCB->pxStack + pxTCB->xUserStackDepth));
 
+#define configUSE_PAGE_ASMBLE_CODE 0
+
 #define cpuPRIVILEGE_LEVEL_0    0 /* Highest privilege level. */
 #define cpuPRIVILEGE_LEVEL_1    1
 #define cpuPRIVILEGE_LEVEL_2    2

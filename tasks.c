@@ -42,6 +42,9 @@
 #include "timers.h"
 #include "stack_macros.h"
 #include "tss.h"
+#include "pmm.h"
+#include "mmu.h"
+#include "heap_alloc.h"
 /* The default definitions are only available for non-MPU ports. The
  * reason is that the stack alignment requirements vary for different
  * architectures.*/
@@ -378,15 +381,55 @@
  */
 typedef struct mm_struct
 {
+    uint32_t  pgd_phys;       /**< Page directory physical address */
     uint32_t *pgd;       /**< Page directory virtual address */
-    uint32_t  cr3;       /**< Page directory physical address */
 
-    uint32_t  start_code;
-    uint32_t  end_code;
-
+    uint32_t start_code, end_code;
+    uint32_t start_data, end_data;
+    uint32_t start_bss, end_bss;
     uint32_t  user_stack_top; /**< Top of user stack. */
+    
+    uint32_t brk;            /**< Current top of the heap (used by the sbrk syscall) */    
+    int count;               /**< Reference count (supports multiple threads sharing the same address space) */
 
 } mm_t;
+
+mm_t* mm_create() {
+    /* 1. Allocate mm_struct from the kernel heap */
+    mm_t *mm = (mm_t *)kmalloc(sizeof(mm_t));
+    if (!mm) return NULL;
+
+    /* 2. Create a new page directory with kernel mappings.
+     *    This calls pmm_alloc_page() internally. */
+    mm->pgd_phys = create_user_page_directory();
+    
+    if (!mm->pgd_phys) {
+        kfree(mm);
+        return NULL;
+    }
+
+    /* 3. Set defaults */
+    mm->user_stack_top = 0xC0000000; /* Below 3 GB as stack top */
+    mm->brk = 0x40000000;           /* Heap starts at 1 GB */
+    mm->count = 1;
+
+    return mm;
+}
+
+void mm_destroy(mm_t *mm) {
+    if (!mm) return;
+
+    mm->count--;
+    if (mm->count == 0) {
+        /* 1. Walk user-space portion of the page directory (entries 0-767) */
+        /* 2. Free every present page table and physical page via pmm_free_page() */
+        /* 3. Free the page directory physical page itself */
+        pmm_free_page((void *)(uintptr_t)mm->pgd_phys);
+        
+        /* 4. Free the struct */
+        kfree(mm);
+    }
+}
 /*-----------------------------------------------------------*/
 
 /*

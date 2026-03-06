@@ -59,6 +59,7 @@ SECTIONS
         *(COMMON)
         __bss_end = .;
     }
+    _kernel_end = .;
 
     /* -------------------- */
     /* Heap for FreeRTOS    */
