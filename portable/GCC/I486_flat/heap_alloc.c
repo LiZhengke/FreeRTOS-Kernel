@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "mmu.h"
+#include "pmm.h"
 
 typedef struct header {
     uint32_t size;        /* Block size (including this header) */
@@ -15,7 +16,7 @@ void kmalloc_init(uint32_t initial_pages) {
     heap_start = (header_t *)kernel_malloc_page(NULL, initial_pages);
 
     /* 2. Initialize the first large free block */
-    heap_start->size = initial_pages * 4096;
+    heap_start->size = initial_pages * PAGE_SIZE;
     heap_start->is_free = 1;
     heap_start->next = NULL;
 }
@@ -27,7 +28,7 @@ void* kmalloc(uint32_t size) {
     while (curr) {
         if (curr->is_free && curr->size >= total_size) {
             /* Found a suitable block! */
-            
+
             /* Split this block if there is enough remaining space */
             if (curr->size > total_size + sizeof(header_t) + 4) {
                 header_t *next_block = (header_t *)((uint32_t)curr + total_size);

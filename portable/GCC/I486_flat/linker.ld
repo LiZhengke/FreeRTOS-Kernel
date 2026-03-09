@@ -20,7 +20,7 @@ SECTIONS
     .boot ALIGN(4K) : AT(KERNEL_LMA)
     {
         KEEP(*(.multiboot))
-        *(.boot)
+        *(.boot*)
     }
 
     /* ========================================
@@ -77,6 +77,7 @@ SECTIONS
     /* Stack (top-down)     */
     /* -------------------- */
     . = ALIGN(16);
+    . += 64K;
     __stack_top = .;
 
     /* Physical addresses for boot code */

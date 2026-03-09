@@ -1,6 +1,6 @@
 #include "vmm.h"
 #include "mmu.h"
-
+#include "pmm.h"
 /**
  * Kernel virtual memory management module.
  * Allocates contiguous virtual address space and maps it to physical memory.
@@ -28,11 +28,11 @@ static uint32_t next_virt_addr = KERNEL_VIRT_START;
  * @return       Starting virtual address.
  */
 void* vmm_alloc(size_t pages) {
-    uint32_t size = pages * 4096;
-    
+    uint32_t size = pages * PAGE_SIZE;
+
     if (next_virt_addr + size > KERNEL_VIRT_END) {
         /* Virtual address space exhausted */
-        return NULL; 
+        return NULL;
     }
 
     uint32_t addr = next_virt_addr;
