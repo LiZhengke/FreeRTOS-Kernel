@@ -54,7 +54,7 @@ static void TaskUser1( void * parameters ) __attribute__( ( noreturn ) );
 #endif
 
 /*-----------------------------------------------------------*/
-
+__attribute__((section(".user_text")))
 static void TaskUser1( void * parameters )
 {
     unsigned long esp;
@@ -93,6 +93,7 @@ static void TaskUser1( void * parameters )
     }
 }
 
+__attribute__((section(".user_text")))
 static void TaskUser2( void * parameters )
 {
     unsigned long esp;
@@ -131,6 +132,7 @@ static void TaskUser2( void * parameters )
     }
 }
 /*-----------------------------------------------------------*/
+__attribute__((section(".user_text")))
 int main( void )
 {
     uSysPrintf( "i486\n" );

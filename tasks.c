@@ -371,7 +371,7 @@
     } while( 0 )
 #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
 
-   
+
 /*
  * The members of the TCB are arranged in a way that ensures the compiler will
  * generate efficient code to access them.  The order of the first few members
@@ -381,15 +381,15 @@
  */
 typedef struct mm_struct
 {
-    uint32_t  pgd_phys;       /**< Page directory physical address */
+    phys_addr_t  pgd_phys;       /**< Page directory physical address */
     uint32_t *pgd;       /**< Page directory virtual address */
 
     uint32_t start_code, end_code;
     uint32_t start_data, end_data;
     uint32_t start_bss, end_bss;
     uint32_t  user_stack_top; /**< Top of user stack. */
-    
-    uint32_t brk;            /**< Current top of the heap (used by the sbrk syscall) */    
+
+    uint32_t brk;            /**< Current top of the heap (used by the sbrk syscall) */
     int count;               /**< Reference count (supports multiple threads sharing the same address space) */
 
 } mm_t;
@@ -402,14 +402,14 @@ mm_t* mm_create() {
     /* 2. Create a new page directory with kernel mappings.
      *    This calls pmm_alloc_page() internally. */
     mm->pgd_phys = create_user_page_directory();
-    
+
     if (!mm->pgd_phys) {
         kfree(mm);
         return NULL;
     }
 
     /* 3. Set defaults */
-    mm->user_stack_top = 0xC0000000; /* Below 3 GB as stack top */
+    mm->user_stack_top = 0xBFFFF000; /* Below 3 GB as stack top */
     mm->brk = 0x40000000;           /* Heap starts at 1 GB */
     mm->count = 1;
 
@@ -425,9 +425,28 @@ void mm_destroy(mm_t *mm) {
         /* 2. Free every present page table and physical page via pmm_free_page() */
         /* 3. Free the page directory physical page itself */
         pmm_free_page((void *)(uintptr_t)mm->pgd_phys);
-        
+
         /* 4. Free the struct */
         kfree(mm);
+    }
+}
+
+extern char _user_text_vma_start[];
+extern char _user_text_vma_end[];
+extern char _user_code_phys_start[];
+
+void map_user_segment(mm_t *mm) {
+    uint32_t v_start = (uint32_t)_user_text_vma_start;
+    uint32_t v_end   = (uint32_t)_user_text_vma_end;
+    uint32_t p_start = (uint32_t)_user_code_phys_start;
+    uint32_t offset = 0;
+    uint32_t size = v_end - v_start;
+    for (offset = 0; offset < size; offset += 4096) {
+        /* 建立映射：0x08048000 -> 物理地址 (1MB + 内核大小) */
+        map_page(mm->pgd,
+                 v_start + offset,
+                 p_start + offset,
+                 PG_PRESENT | PG_USER);
     }
 }
 /*-----------------------------------------------------------*/
@@ -1392,6 +1411,22 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             pxNewTCB->pxUserStack = ( StackType_t * ) puxUserStack;
             pxNewTCB->xUserStackDepth = ( size_t ) uxStackDepth;
             pxNewTCB->xUserPrivilegeLevel = xUserPrivilegeLevel;
+            pxNewTCB->mm = mm_create();
+
+            if( pxNewTCB->mm != NULL && pxNewTCB->pxUserStack != NULL )
+            {
+                /* 我们把静态数组 mainUserStack 对应的物理地址，映射到用户虚拟地址 0xBFFFF000 */
+                uint32_t user_stack_phys = v2p((uint32_t)pxNewTCB->pxUserStack); // 获取用户栈的物理地址
+                uint32_t user_stack_virt = pxNewTCB->mm->user_stack_top; // 用户态看到的栈顶虚拟地址
+
+                // 映射足够的页面（根据 STACK_SIZE 计算页数）
+                for (int i = 0; i < (pxNewTCB->xUserStackDepth * sizeof(StackType_t)) / 4096 + 1; i++) {
+                    map_page(pxNewTCB->mm->pgd,
+                            user_stack_virt - (i * 4096),
+                            user_stack_phys - (i * 4096),
+                            PG_PRESENT | PG_RW | PG_USER);
+                }
+            }
 
             #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 )
             {

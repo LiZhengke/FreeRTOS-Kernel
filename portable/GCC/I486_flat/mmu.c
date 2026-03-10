@@ -3,10 +3,11 @@
 #include "mmu.h"
 #include "pmm.h"
 #include "vmm.h"
+#include "heap_alloc.h"
 
 /* Extract the upper 20 bits of an address (aligned to 4KB) */
 #define PAGE_ADDR(addr) ((uint32_t)(addr) & 0xFFFFF000)
-// 定义内核起始的页目录索引 (0xC0000000 >> 22 = 768)
+/* 定义内核起始的页目录索引 (0xC0000000 >> 22 = 768) */
 #define KERNEL_PDE_START 768
 
 /* Page directory must be aligned to a 4KB boundary */
@@ -57,6 +58,9 @@ void init_paging() {
 
     // 5. 开启分页 (将 CR0 的第 31 位置 1)
     enable_paging();
+
+    kmalloc_init(16); /* 初始化内核堆，预分配 16 页 (64KB) */
+    pmm_init(MEMORY_MAX_SIZE); /* 初始化物理内存管理器，假设总内存为 128MB */
 }
 
 void map_page(uint32_t *dir, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags) {

@@ -30,8 +30,8 @@ void pmm_init(uint32_t mem_size) {
     memset(pmm_bitmap, 0xFF, BITMAP_SIZE);
 
     /* 2. Mark pages in the usable region as free.
-     *    Assumes memory from 1MB up to mem_size is available. */
-    uint32_t start_page = 0x100000 / PAGE_SIZE;
+     *    Assumes memory from 4MB up to mem_size is available. */
+    uint32_t start_page = 0x400000 / PAGE_SIZE;
     uint32_t end_page = mem_size / PAGE_SIZE;
 
     for (uint32_t i = start_page; i < end_page; i++) {

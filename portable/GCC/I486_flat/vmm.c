@@ -16,11 +16,11 @@
  * - Ensure allocated virtual address space does not exceed the preset range.
  * - Set the correct permission and attribute bits when mapping (e.g. RW, user/kernel). */
 /* Start of kernel virtual space (typically the 3GB boundary) */
-#define KERNEL_VIRT_START 0xC0000000
-#define KERNEL_VIRT_END   0xFFFFFFFF
+
 
 /* Tracks where the next virtual address allocation begins */
-static uint32_t next_virt_addr = KERNEL_VIRT_START;
+#define KERNEL_VIRT_OFFSET 0x400000 /* 4MB offset to avoid low memory */
+static uint32_t next_virt_addr = KERNEL_VIRT_START + KERNEL_VIRT_OFFSET;
 
 /**
  * Allocate contiguous virtual address space.
