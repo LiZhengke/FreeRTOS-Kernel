@@ -17,7 +17,7 @@ _start:
     movw %ax, %gs
 
     # Finally we can go to C language
-    movl $0x90000, %esp
+    movl $0x90000, %esp /* Stack top at 0x90000 (576KB), which is in the identity-mapped region. */
     call kmain
 
     # jump to kernel

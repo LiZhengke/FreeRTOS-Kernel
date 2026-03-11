@@ -11,9 +11,9 @@ typedef struct header {
 
 static header_t *heap_start = NULL;
 
-void kmalloc_init(uint32_t initial_pages) {
+void kmalloc_init(pde_t *page_directory, uint32_t initial_pages) {
     /* 1. Obtain contiguous virtual space using vmm_alloc and map_page */
-    heap_start = (header_t *)kernel_malloc_page(NULL, initial_pages);
+    heap_start = (header_t *)kernel_malloc_page(page_directory, initial_pages);
 
     /* 2. Initialize the first large free block */
     heap_start->size = initial_pages * PAGE_SIZE;

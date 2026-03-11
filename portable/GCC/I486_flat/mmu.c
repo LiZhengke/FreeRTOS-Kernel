@@ -18,12 +18,10 @@ static pde_t page_directory[1024] __attribute__((aligned(PAGE_SIZE)));
 __attribute__((section(".boot"), aligned(PAGE_SIZE)))
 static pte_t page_table[1024] __attribute__((aligned(PAGE_SIZE)));
 
-__attribute__((section(".boot.text")))
-static void load_page_directory(uint32_t pd) {
+void load_page_directory(uint32_t pd) {
     __asm volatile ("mov %0, %%cr3" :: "r" (pd));
 }
-__attribute__((section(".boot.text")))
-static void enable_paging(void) {
+void enable_paging(void) {
     __asm volatile (
         "mov %%cr0, %%eax\n"
         "or $0x80000000, %%eax\n"
@@ -58,9 +56,6 @@ void init_paging() {
 
     // 5. 开启分页 (将 CR0 的第 31 位置 1)
     enable_paging();
-
-    kmalloc_init(16); /* 初始化内核堆，预分配 16 页 (64KB) */
-    pmm_init(MEMORY_MAX_SIZE); /* 初始化物理内存管理器，假设总内存为 128MB */
 }
 
 void map_page(uint32_t *dir, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags) {
@@ -128,4 +123,9 @@ void* kernel_malloc_page(pde_t* page_directory, size_t pages) {
     }
 
     return virt_addr;
+}
+
+void mmu_init(void) {
+    kmalloc_init(page_directory, 16); /* 初始化内核堆，预分配 16 页 (64KB) */
+    pmm_init(MEMORY_MAX_SIZE); /* 初始化物理内存管理器，假设总内存为 128MB */
 }

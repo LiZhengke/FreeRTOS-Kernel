@@ -2,8 +2,9 @@
 #define HEAP_ALLOC_H
 
 #include <stdint.h>
+#include "mmu.h"
 
-void  kmalloc_init(uint32_t initial_pages);
+void  kmalloc_init(pde_t *page_directory, uint32_t initial_pages);
 void *kmalloc(uint32_t size);
 void  kfree(void *ptr);
 

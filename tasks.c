@@ -1411,20 +1411,24 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             pxNewTCB->pxUserStack = ( StackType_t * ) puxUserStack;
             pxNewTCB->xUserStackDepth = ( size_t ) uxStackDepth;
             pxNewTCB->xUserPrivilegeLevel = xUserPrivilegeLevel;
-            pxNewTCB->mm = mm_create();
+
+            if( xUserPrivilegeLevel == cpuPRIVILEGE_LEVEL_3 )
+                pxNewTCB->mm = mm_create();
 
             if( pxNewTCB->mm != NULL && pxNewTCB->pxUserStack != NULL )
             {
                 /* 我们把静态数组 mainUserStack 对应的物理地址，映射到用户虚拟地址 0xBFFFF000 */
-                uint32_t user_stack_phys = v2p((uint32_t)pxNewTCB->pxUserStack); // 获取用户栈的物理地址
-                uint32_t user_stack_virt = pxNewTCB->mm->user_stack_top; // 用户态看到的栈顶虚拟地址
+                uint32_t user_stack_phys = v2p( ( void * ) pxNewTCB->pxUserStack );
+                uint32_t user_stack_virt = pxNewTCB->mm->user_stack_top;
+                size_t i;
 
-                // 映射足够的页面（根据 STACK_SIZE 计算页数）
-                for (int i = 0; i < (pxNewTCB->xUserStackDepth * sizeof(StackType_t)) / 4096 + 1; i++) {
-                    map_page(pxNewTCB->mm->pgd,
-                            user_stack_virt - (i * 4096),
-                            user_stack_phys - (i * 4096),
-                            PG_PRESENT | PG_RW | PG_USER);
+                /* 映射足够的页面（根据 STACK_SIZE 计算页数） */
+                for( i = 0; i < ( pxNewTCB->xUserStackDepth * sizeof( StackType_t ) ) / 4096 + 1; i++ )
+                {
+                    map_page( pxNewTCB->mm->pgd,
+                              user_stack_virt - ( uint32_t ) ( i * 4096 ),
+                              user_stack_phys - ( uint32_t ) ( i * 4096 ),
+                              PG_PRESENT | PG_RW | PG_USER );
                 }
             }
 

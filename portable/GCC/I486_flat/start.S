@@ -88,6 +88,7 @@ _start:
     movl %eax, %cr0
 .endif /* configUSE_PAGE_ASMBLE_CODE */
     call init_paging
+
     /* ----- 5. Jump to high-address code ----- */
     leal _higher_half, %eax
     jmp  *%eax
@@ -119,7 +120,10 @@ _higher_half:
     movl $__stack_top, %esp
     movl $__stack_top, %ebp
 
+    # 可选：清空 ebp 方便回溯
+    xor %ebp, %ebp
     /* ----- 8. Enter C code ----- */
+    call mmu_init
     call vStartMainTask
 
 halt:

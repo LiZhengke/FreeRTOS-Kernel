@@ -35,4 +35,12 @@ static inline phys_addr_t v2p(void* virt) {
     /* 只有在内核代码/数据段的虚拟地址才能用这个转换 */
     return (phys_addr_t)((uint32_t)virt - KERNEL_OFFSET);
 }
+
+__attribute__((section(".boot.text")))
+void load_page_directory(uint32_t pd);
+
+__attribute__((section(".boot.text")))
+void enable_paging(void);
+
+void mmu_init(void);
 #endif /* MMU_H */

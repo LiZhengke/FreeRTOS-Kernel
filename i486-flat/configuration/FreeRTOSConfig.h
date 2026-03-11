@@ -690,7 +690,9 @@
 
 #define portTASK_SWITCH_HOOK( pxTCB ) \
     if ((pxTCB->xUserPrivilegeLevel & 0x03) == cpuPRIVILEGE_LEVEL_3) \
-        tss_set_esp0((uint32_t)(pxTCB->pxStack + pxTCB->xUserStackDepth));
+        tss_set_esp0((uint32_t)(pxTCB->pxStack + pxTCB->xUserStackDepth)); \
+    if(pxTCB->mm != NULL) \
+        load_page_directory(pxTCB->mm->pgd_phys);
 
 #define configUSE_PAGE_ASMBLE_CODE 0
 
