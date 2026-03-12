@@ -298,7 +298,6 @@
                                                           NULL,
                                                           ( ( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,
                                                           pxTimerTaskStackBuffer,
-                                                          NULL,
                                                           cpuPRIVILEGE_LEVEL_0,
                                                           pxTimerTaskTCBBuffer );
 

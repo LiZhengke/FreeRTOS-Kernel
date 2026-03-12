@@ -462,7 +462,6 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     volatile StackType_t * pxTopOfStack; /**< Points to the location of the last item placed on the tasks stack.  THIS MUST BE THE FIRST MEMBER OF THE TCB STRUCT. */
     volatile StackType_t * pxStack;                      /**< Points to the start of the stack. */
     size_t xUserStackDepth;                       /**< The size of the stack allocated to the task.  This is 0 if the stack was statically allocated. */
-    volatile StackType_t * pxUserStack;                   /**< Points to the start of the user stack. */
     cpu_privilege_level_t xUserPrivilegeLevel;  /**< The privilege level of the user stack. */
     mm_t *mm; /**< The memory management structure for the task. */
 
@@ -833,7 +832,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                         void * const pvParameters,
                                         UBaseType_t uxPriority,
                                         StackType_t * const puxStackBuffer,
-                                        StackType_t * const puxStackUserBuffer,
                                         cpu_privilege_level_t xUserPrivilegeLevel,
                                         StaticTask_t * const pxTaskBuffer,
                                         TaskHandle_t * const pxCreatedTask ) PRIVILEGED_FUNCTION;
@@ -1376,7 +1374,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                         void * const pvParameters,
                                         UBaseType_t uxPriority,
                                         StackType_t * const puxStackBuffer,
-                                        StackType_t * const puxStackUserBuffer,
                                         cpu_privilege_level_t xUserPrivilegeLevel,
                                         StaticTask_t * const pxTaskBuffer,
                                         TaskHandle_t * const pxCreatedTask )
@@ -1399,8 +1396,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
         if( ( pxTaskBuffer != NULL ) && ( puxStackBuffer != NULL ) )
         {
-            StackType_t * const puxUserStack = ( puxStackUserBuffer != NULL ) ? puxStackUserBuffer : puxStackBuffer;
-
             /* The memory used for the task's TCB and stack are passed into this
              * function - use them. */
             /* MISRA Ref 11.3.1 [Misaligned access] */
@@ -1409,26 +1404,39 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             pxNewTCB = ( TCB_t * ) pxTaskBuffer;
             ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
             pxNewTCB->pxStack = ( StackType_t * ) puxStackBuffer;
-            pxNewTCB->pxUserStack = ( StackType_t * ) puxUserStack;
             pxNewTCB->xUserStackDepth = ( size_t ) uxStackDepth;
             pxNewTCB->xUserPrivilegeLevel = xUserPrivilegeLevel;
 
             if( xUserPrivilegeLevel == cpuPRIVILEGE_LEVEL_3 )
                 pxNewTCB->mm = mm_create();
 
-            if( pxNewTCB->mm != NULL && pxNewTCB->pxUserStack != NULL )
+            if( pxNewTCB->mm != NULL)
             {
-                /* 我们把静态数组 mainUserStack 对应的物理地址，映射到用户虚拟地址 0xBFFFF000 */
-                uint32_t user_stack_phys = v2p( ( void * ) pxNewTCB->pxUserStack );
+                /* 计算栈的大小（字节） */
+                uint32_t stack_size = pxNewTCB->xUserStackDepth * sizeof( StackType_t );
+                /* 计算用户栈的物理地址 */
+                uint32_t user_stack_phys = (uint32_t)pmm_alloc_page(stack_size / 4096);
+
+                /* 计算用户栈的虚拟地址 */
                 uint32_t user_stack_virt = pxNewTCB->mm->user_stack_top;
+                /* 计算用户栈占用的页数 */
+                /* 假设 STACK_SIZE 是 4096 的倍数 */
+                uint32_t num_pages = (stack_size + 4095) / 4096;
                 size_t i;
 
                 /* 映射足够的页面（根据 STACK_SIZE 计算页数） */
-                for( i = 0; i < ( pxNewTCB->xUserStackDepth * sizeof( StackType_t ) ) / 4096 + 1; i++ )
+                for( i = 0; i < num_pages; i++ )
                 {
+                    /* * 逻辑：
+                    * 物理页：从 user_stack_phys 开始往上加 (i * 4096)
+                    * 虚拟页：从 user_stack_virt 开始往下减 ((i + 1) * 4096)
+                    * 注意：栈顶地址通常是该页的末尾，所以映射时要减去一整页
+                    */
+                    uint32_t phys_page = user_stack_phys + (i * 4096);
+                    uint32_t virt_page = (user_stack_virt - stack_size) + (i * 4096);
                     map_page( pxNewTCB->mm->pgd,
-                              user_stack_virt - ( uint32_t ) ( i * 4096 ),
-                              user_stack_phys - ( uint32_t ) ( i * 4096 ),
+                              virt_page,
+                              phys_page,
                               PG_PRESENT | PG_RW | PG_USER );
                 }
             }
@@ -1458,7 +1466,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                     void * const pvParameters,
                                     UBaseType_t uxPriority,
                                     StackType_t * const puxStackBuffer,
-                                    StackType_t * const puxStackUserBuffer,
                                     cpu_privilege_level_t xUserPrivilegeLevel,
                                     StaticTask_t * const pxTaskBuffer )
     {
@@ -1467,7 +1474,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
         traceENTER_xTaskCreateStatic( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxStackBuffer, pxTaskBuffer );
 
-        pxNewTCB = prvCreateStaticTask( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxStackBuffer, puxStackUserBuffer, xUserPrivilegeLevel, pxTaskBuffer, &xReturn );
+        pxNewTCB = prvCreateStaticTask( pxTaskCode, pcName, uxStackDepth, pvParameters, uxPriority, puxStackBuffer, xUserPrivilegeLevel, pxTaskBuffer, &xReturn );
 
         if( pxNewTCB != NULL )
         {
@@ -1850,7 +1857,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         if( pxNewTCB != NULL )
         {
             pxNewTCB->xUserPrivilegeLevel = xPrivilegeLevel;
-            pxNewTCB->pxUserStack = pxNewTCB->pxStack;
             pxNewTCB->xUserStackDepth = ( size_t ) uxStackDepth;
 
             #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 )
@@ -1978,10 +1984,6 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     {
         /* Fill the stack with a known value to assist debugging. */
         ( void ) memset( (void*)pxNewTCB->pxStack, ( int ) tskSTACK_FILL_BYTE, ( size_t ) uxStackDepth * sizeof( StackType_t ) );
-        if( pxNewTCB->pxUserStack != NULL )
-        {
-            ( void ) memset( (void*)pxNewTCB->pxUserStack, ( int ) tskSTACK_USER_FILL_BYTE, ( size_t ) uxStackDepth * sizeof( StackType_t ) );
-        }
     }
     #endif /* tskSET_NEW_STACKS_TO_KNOWN_VALUE */
 
@@ -1996,19 +1998,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
          ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack) &
           ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) );
 
-        pxTopOfUserStack = ( StackType_t * ) pxNewTCB->pxUserStack;
-        if( pxTopOfUserStack != NULL )
-        {
-            pxTopOfUserStack = &( pxTopOfUserStack[ uxStackDepth - ( configSTACK_DEPTH_TYPE ) 1 ] );
-            pxTopOfUserStack = ( StackType_t *)
-             ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfUserStack) &
-              ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) );
-        }
-        else
-        {
-            pxTopOfUserStack = pxTopOfStack;
-        }
-
+        pxTopOfUserStack = (StackType_t*)pxNewTCB->mm->user_stack_top;
         /* Check the alignment of the calculated top of stack is correct. */
         configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
 
@@ -2025,15 +2015,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         pxTopOfStack = pxNewTCB->pxStack;
         pxTopOfStack = ( StackType_t * ) ( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack ) + portBYTE_ALIGNMENT_MASK ) & ( ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) ) );
 
-        pxTopOfUserStack = ( StackType_t * ) pxNewTCB->pxUserStack;
-        if( pxTopOfUserStack != NULL )
-        {
-            pxTopOfUserStack = ( StackType_t * ) ( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfUserStack ) + portBYTE_ALIGNMENT_MASK ) & ( ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) ) );
-        }
-        else
-        {
-            pxTopOfUserStack = pxTopOfStack;
-        }
+        pxTopOfUserStack = (StackType_t*)pxNewTCB->mm->user_stack_top;
 
         /* Check the alignment of the calculated top of stack is correct. */
         configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0U ) );
@@ -3811,7 +3793,6 @@ static BaseType_t prvCreateIdleTasks( void )
                                                              ( void * ) NULL,
                                                              portPRIVILEGE_BIT, /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
                                                              pxIdleTaskStackBuffer,
-                                                             NULL, /* No need to provide a user stack as it is a ring 0 task. */
                                                              cpuPRIVILEGE_LEVEL_0, /* The task is being created as a privileged task. */
                                                              pxIdleTaskTCBBuffer );
 

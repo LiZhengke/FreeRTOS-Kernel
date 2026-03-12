@@ -186,7 +186,6 @@ static int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint3
                                 pvParameters,
                                 priority,
                                 pxKernelStack,
-                                pxUserStack,
                                 cpuPRIVILEGE_LEVEL_3,
                                 pxTCB );
 

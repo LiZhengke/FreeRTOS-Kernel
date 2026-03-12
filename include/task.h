@@ -520,7 +520,6 @@ typedef enum
                                     void * const pvParameters,
                                     UBaseType_t uxPriority,
                                     StackType_t * const puxStackBuffer,
-                                    StackType_t * const puxStackUserBuffer,
                                     cpu_privilege_level_t xUserPrivilegeLevel,
                                     StaticTask_t * const pxTaskBuffer ) PRIVILEGED_FUNCTION;
 #endif /* configSUPPORT_STATIC_ALLOCATION */

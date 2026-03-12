@@ -814,10 +814,8 @@ void vStartMainTask( void )
     static StaticTask_t mainTaskTCB;
     static StackType_t mainKernelStack[ STACK_SIZE ];
 
-    __attribute__((section(".user_stack")))
-    static StackType_t mainUserStack[ STACK_SIZE ];
     printf( "vStartMainTask %p\n", ( void * ) &vStartMainTask );
-    printf( "mainKernelStack=%p mainUserStack=%p\n", ( void * ) mainKernelStack, ( void * ) mainUserStack );
+    printf( "mainKernelStack=%p\n", ( void * ) mainKernelStack);
 
     extern void main( void * parameters );
 
@@ -830,7 +828,6 @@ void vStartMainTask( void )
                                 NULL,
                                 configMAX_PRIORITIES - 1U,
                                 &( mainKernelStack[ 0 ] ),
-                                &( mainUserStack[ 0 ] ),
                                 cpuPRIVILEGE_LEVEL_3,
                                 &( mainTaskTCB ) );
 
