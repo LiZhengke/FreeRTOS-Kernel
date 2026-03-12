@@ -89,8 +89,15 @@ SECTIONS
         _user_data_vma_end = .;
     }
 
+    . = ALIGN(4K); /* Stack段也保持页对齐，方便单独映射 */
+    .user_stack ALIGN(4K) : AT(_user_data_phys_template + SIZEOF(.user_data))
+    {
+        _user_stack_vma_start = .;
+        *(.user_stack)
+        _user_stack_vma_end = .;
+    }
     /* 记录所有用户模版占用的总物理结束位置 */
-    _user_templates_phys_end = _user_data_phys_template + SIZEOF(.user_data);
+    _user_templates_phys_end = _user_data_phys_template + SIZEOF(.user_data) + SIZEOF(.user_stack);
 
     /* ==========================================================
      * 4. 回归内核空间：定义堆和栈

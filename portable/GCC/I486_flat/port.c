@@ -813,6 +813,8 @@ void vStartMainTask( void )
 {
     static StaticTask_t mainTaskTCB;
     static StackType_t mainKernelStack[ STACK_SIZE ];
+
+    __attribute__((section(".user_stack")))
     static StackType_t mainUserStack[ STACK_SIZE ];
     printf( "vStartMainTask %p\n", ( void * ) &vStartMainTask );
     printf( "mainKernelStack=%p mainUserStack=%p\n", ( void * ) mainKernelStack, ( void * ) mainUserStack );
