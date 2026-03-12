@@ -22,10 +22,13 @@ b vStartMainTask
 b sys_task_create
 b tss_set_esp0
 b uSysTaskCreate
-b kmalloc_init
-b pmm_init
-b load_page_directory
-b kernel_malloc_page
+#b kmalloc_init
+#b pmm_init
+#b load_page_directory
+#b kernel_malloc_page
+b mm_create
+#b create_user_page_directory
+#b map_page
 # Auto watch
 display/i $eip
 #display/x $eflags

@@ -407,6 +407,7 @@ mm_t* mm_create() {
         kfree(mm);
         return NULL;
     }
+    mm->pgd = (uint32_t *)p2v(mm->pgd_phys); /* Convert to virtual address for use */
 
     /* 3. Set defaults */
     mm->user_stack_top = 0xBFFFF000; /* Below 3 GB as stack top */

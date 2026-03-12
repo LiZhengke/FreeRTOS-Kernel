@@ -84,4 +84,6 @@ set_property(TARGET freertos_kernel PROPERTY C_STANDARD 90)
 target_link_options(${PROJECT_NAME}
     PRIVATE
     -T ${PORT_I486_FLAT_PATH}/linker.ld
+    -Wl,-Map=${PROJECT_NAME}.map
+    -Wl,--cref
 )

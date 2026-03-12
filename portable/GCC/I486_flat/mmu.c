@@ -58,26 +58,33 @@ void init_paging() {
     enable_paging();
 }
 
-void map_page(uint32_t *dir, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags) {
+void map_page(uint32_t *dir_vir, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags) {
     uint32_t pd_index = virtual_addr >> 22;            /* Upper 10 bits */
     uint32_t pt_index = (virtual_addr >> 12) & 0x3FF;  /* Middle 10 bits */
 
     /* Check whether the corresponding page table exists */
-    if (!(dir[pd_index] & PG_PRESENT)) {
+    if (!dir_vir[pd_index] || !(dir_vir[pd_index] & PG_PRESENT)) {
         /* Page table does not exist; allocate a physical page for it.
          * Note: this must be a physical page address! */
         uint32_t new_pt = (uint32_t)pmm_alloc_page();
+        if (!new_pt) return; /* Out of memory - in a real kernel, you'd want to handle this more gracefully */
 
         /* Zero-fill the new page table to prevent stale mappings */
-        uint32_t *pt_ptr = (uint32_t *)new_pt;
+        uint32_t *pt_ptr = (uint32_t *)p2v(new_pt); /* Convert to virtual address for initialization */
         for(int i = 0; i < 1024; i++) pt_ptr[i] = 0;
 
         /* Set the PDE with full permissions; fine-grained access is controlled by the PTE */
-        dir[pd_index] = new_pt | PG_PRESENT | PG_RW | PG_USER;
+        dir_vir[pd_index] = new_pt | PG_PRESENT | PG_RW | PG_USER;
     }
+    /*
+        * At this point, the page table exists. Get its physical address from the PDE,
+        * convert to virtual address, and set the PTE for the desired mapping.
+        */
+    uint32_t pt_phys_addr = dir_vir[pd_index] & 0xFFFFF000;
+    uint32_t *page_table = (uint32_t *)p2v(pt_phys_addr);
 
-    uint32_t *page_table = (uint32_t *)(dir[pd_index] & 0xFFFFF000);
-    page_table[pt_index] = PAGE_ADDR(physical_addr) | flags;
+    /* Set the PTE with the physical address and flags */
+    page_table[pt_index] = (physical_addr & 0xFFFFF000) | flags | PG_PRESENT;
 
     /* Flush TLB so the CPU does not use a stale mapping */
     flush_tlb(virtual_addr);
@@ -90,10 +97,10 @@ inline void flush_tlb(uint32_t virtual_addr) {
 
 uint32_t create_user_page_directory(void) {
     /* Allocate a physical page for the new page directory */
-    uint32_t new_pd = (uint32_t)pmm_alloc_page();
-    if (!new_pd) return 0;
+    uint32_t new_pd_phys = (uint32_t)pmm_alloc_page();
+    if (!new_pd_phys) return 0;
 
-    uint32_t *pd = (uint32_t *)new_pd;
+    uint32_t *pd = (uint32_t *)p2v(new_pd_phys); /* Convert to virtual address for initialization */
 
     /* Clear user-space entries (0 - 767) */
     for (int i = 0; i < KERNEL_PDE_START; i++) {
@@ -105,7 +112,7 @@ uint32_t create_user_page_directory(void) {
         pd[i] = page_directory[i];
     }
 
-    return new_pd;
+    return new_pd_phys;
 }
 
 void* kernel_malloc_page(pde_t* page_directory, size_t pages) {
