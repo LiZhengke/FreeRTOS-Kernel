@@ -401,13 +401,12 @@ mm_t* mm_create() {
 
     /* 2. Create a new page directory with kernel mappings.
      *    This calls pmm_alloc_page() internally. */
-    mm->pgd_phys = create_user_page_directory();
+    create_user_page_directory(&mm->pgd_phys, (uint32_t**)&mm->pgd); /* Returns physical address of new page directory */
 
     if (!mm->pgd_phys) {
         kfree(mm);
         return NULL;
     }
-    mm->pgd = (uint32_t *)p2v(mm->pgd_phys); /* Convert to virtual address for use */
 
     /* 3. Set defaults */
     mm->user_stack_top = 0xBFFFF000; /* Below 3 GB as stack top */
@@ -461,9 +460,10 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
 {
     volatile StackType_t * pxTopOfStack; /**< Points to the location of the last item placed on the tasks stack.  THIS MUST BE THE FIRST MEMBER OF THE TCB STRUCT. */
     volatile StackType_t * pxStack;                      /**< Points to the start of the stack. */
+    mm_t *mm; /**< The memory management structure for the task. */
+
     size_t xUserStackDepth;                       /**< The size of the stack allocated to the task.  This is 0 if the stack was statically allocated. */
     cpu_privilege_level_t xUserPrivilegeLevel;  /**< The privilege level of the user stack. */
-    mm_t *mm; /**< The memory management structure for the task. */
 
     #if ( portUSING_MPU_WRAPPERS == 1 )
         xMPU_SETTINGS xMPUSettings; /**< The MPU settings are defined as part of the port layer.  THIS MUST BE THE SECOND MEMBER OF THE TCB STRUCT. */
@@ -1412,33 +1412,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             if( pxNewTCB->mm != NULL)
             {
-                /* 计算栈的大小（字节） */
-                uint32_t stack_size = pxNewTCB->xUserStackDepth * sizeof( StackType_t );
-                /* 计算用户栈的物理地址 */
-                uint32_t user_stack_phys = (uint32_t)pmm_alloc_page(stack_size / 4096);
-
-                /* 计算用户栈的虚拟地址 */
-                uint32_t user_stack_virt = pxNewTCB->mm->user_stack_top;
-                /* 计算用户栈占用的页数 */
-                /* 假设 STACK_SIZE 是 4096 的倍数 */
-                uint32_t num_pages = (stack_size + 4095) / 4096;
-                size_t i;
-
-                /* 映射足够的页面（根据 STACK_SIZE 计算页数） */
-                for( i = 0; i < num_pages; i++ )
-                {
-                    /* * 逻辑：
-                    * 物理页：从 user_stack_phys 开始往上加 (i * 4096)
-                    * 虚拟页：从 user_stack_virt 开始往下减 ((i + 1) * 4096)
-                    * 注意：栈顶地址通常是该页的末尾，所以映射时要减去一整页
-                    */
-                    uint32_t phys_page = user_stack_phys + (i * 4096);
-                    uint32_t virt_page = (user_stack_virt - stack_size) + (i * 4096);
-                    map_page( pxNewTCB->mm->pgd,
-                              virt_page,
-                              phys_page,
-                              PG_PRESENT | PG_RW | PG_USER );
-                }
+                map_user_section( pxNewTCB->mm->pgd, (uint32_t*)pxNewTCB->mm->user_stack_top, uxStackDepth);
             }
 
             #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 )
@@ -2208,6 +2182,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 pxCurrentTCB = pxNewTCB;
 
                 portSETUP_TCB_TSS( pxCurrentTCB );
+
                 if( uxCurrentNumberOfTasks == ( UBaseType_t ) 1 )
                 {
                     /* This is the first task to be created so do the preliminary

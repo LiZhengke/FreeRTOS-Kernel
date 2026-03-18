@@ -120,6 +120,13 @@ vPortStartFirstTask:
     /* Find the TCB. */
     movl    pxCurrentTCB, %eax
 
+    /* get pxCurrentTCB->mm. */
+    movl   12(%eax), %edx
+    /* get pxCurrentTCB->mm->pgd. */
+    movl   (%edx), %edx
+    /* Load the page directory base register with the physical address of the page directory. */
+    movl   %edx, %cr3
+
     /* Stack location is first item in the TCB. */
     movl    (%eax), %esp
 

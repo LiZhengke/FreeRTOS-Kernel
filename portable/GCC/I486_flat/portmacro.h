@@ -300,6 +300,20 @@ BaseType_t xPortInstallInterruptHandler( ISR_Handler_t pxHandler,
     printf( "portSETUP_TCB_TSS: setting TSS esp0 to %p for task %s\n", ( void * ) pxTopOfStack, pxTCB->pcTaskName ); \
     tss_set_esp0( ( uint32_t ) pxTopOfStack ); \
 }
+
+#define portSETUP_PG_DIR( pxTCB ) \
+{ \
+    if( pxTCB->mm != NULL ) \
+    { \
+        printf( "portSETUP_PG_DIR: loading page directory 0x%x for task %s\n", ( uint32_t ) pxTCB->mm->pgd_phys, pxTCB->pcTaskName ); \
+        load_page_directory((uint32_t)pxTCB->mm->pgd_phys); \
+    } \
+    else \
+    { \
+        printf( "portSETUP_PG_DIR: no page directory for task %s\n", pxTCB->pcTaskName ); \
+    } \
+}
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
     }

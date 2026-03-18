@@ -27,7 +27,10 @@ b uSysTaskCreate
 #b load_page_directory
 #b kernel_malloc_page
 b mm_create
-#b create_user_page_directory
+#b init_paging
+b mmu_test
+b mmu_init
+b create_user_page_directory
 #b map_page
 # Auto watch
 display/i $eip

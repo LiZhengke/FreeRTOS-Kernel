@@ -694,7 +694,8 @@
     if(pxTCB->mm != NULL) \
         load_page_directory(pxTCB->mm->pgd_phys);
 
-#define configUSE_PAGE_ASMBLE_CODE 0
+#define configUSE_PAGE_ASMBLE_CODE   0
+#define configSUPPORT_PAGE_TABLE_TWO 1
 
 #define cpuPRIVILEGE_LEVEL_0    0 /* Highest privilege level. */
 #define cpuPRIVILEGE_LEVEL_1    1

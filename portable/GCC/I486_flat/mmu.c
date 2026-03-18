@@ -1,9 +1,11 @@
 /* Page directory / page table entry common attribute bits */
 #include <stddef.h>
+#include <stdio.h>
 #include "mmu.h"
 #include "pmm.h"
 #include "vmm.h"
 #include "heap_alloc.h"
+#include "FreeRTOS.h" // Add this to define StackType_t
 
 /* Extract the upper 20 bits of an address (aligned to 4KB) */
 #define PAGE_ADDR(addr) ((uint32_t)(addr) & 0xFFFFF000)
@@ -17,6 +19,12 @@ static pde_t page_directory[1024] __attribute__((aligned(PAGE_SIZE)));
 /* First page table, used to map the first 4MB where the kernel resides */
 __attribute__((section(".boot"), aligned(PAGE_SIZE)))
 static pte_t page_table[1024] __attribute__((aligned(PAGE_SIZE)));
+
+#if configSUPPORT_PAGE_TABLE_TWO == 1
+/* Second page table, used to map the next 4MB where the kernel resides */
+__attribute__((section(".boot"), aligned(PAGE_SIZE)))
+static pte_t page_table2[1024] __attribute__((aligned(PAGE_SIZE)));
+#endif
 
 void load_page_directory(uint32_t pd) {
     __asm volatile ("mov %0, %%cr3" :: "r" (pd));
@@ -43,13 +51,24 @@ void init_paging() {
     for(uint32_t i = 0; i < 1024; i++) {
         // 将物理地址 (i * 4KB) 填入页表
         page_table[i] = (i * 0x1000) | PG_PRESENT | PG_RW;
+#if configSUPPORT_PAGE_TABLE_TWO == 1
+        page_table2[i] = ((i + 1024) * 0x1000) | PG_PRESENT | PG_RW;
+#endif
     }
 
     // 3. 将页表放入页目录的第一项
     page_directory[0] = ((uint32_t)page_table) | PG_PRESENT | PG_RW;
+#if configSUPPORT_PAGE_TABLE_TWO == 1
+    page_directory[1] = ((uint32_t)page_table2) | PG_PRESENT | PG_RW;
+#endif
+
 
     // 3.1 将高半区映射到同一物理地址空间 (0xC0000000 -> 0x00000000)
     page_directory[KERNEL_PDE_START] = ((uint32_t)page_table) | PG_PRESENT | PG_RW;
+#if configSUPPORT_PAGE_TABLE_TWO == 1
+    page_directory[KERNEL_PDE_START + 1] = ((uint32_t)page_table2) | PG_PRESENT | PG_RW;
+#endif
+
 
     // 4. 将页目录地址告诉 CPU (写入 CR3 寄存器)
     load_page_directory((uint32_t)page_directory);
@@ -95,10 +114,10 @@ inline void flush_tlb(uint32_t virtual_addr) {
    __asm__ volatile("invlpg (%0)" : : "r" (virtual_addr) : "memory");
 }
 
-uint32_t create_user_page_directory(void) {
+void create_user_page_directory(uint32_t* pgd_phys, uint32_t** pgd_virt) {
     /* Allocate a physical page for the new page directory */
     uint32_t new_pd_phys = (uint32_t)pmm_alloc_page();
-    if (!new_pd_phys) return 0;
+    if (!new_pd_phys) return;
 
     uint32_t *pd = (uint32_t *)p2v(new_pd_phys); /* Convert to virtual address for initialization */
 
@@ -112,7 +131,9 @@ uint32_t create_user_page_directory(void) {
         pd[i] = page_directory[i];
     }
 
-    return new_pd_phys;
+    if (pgd_phys) *pgd_phys = new_pd_phys;
+    if (pgd_virt) *pgd_virt = pd;
+
 }
 
 void* kernel_malloc_page(pde_t* page_directory, size_t pages) {
@@ -132,7 +153,76 @@ void* kernel_malloc_page(pde_t* page_directory, size_t pages) {
     return virt_addr;
 }
 
+/* 引用链接脚本中的符号 */
+extern char _user_text_vma_start[]; /* 0x08048000 */
+extern char _kernel_phys_end[];     /* 物理起始点 (比如 0x150000) */
+extern char _user_text_vma_end[];   /* 当前线程控制块，包含用户栈地址 */
+// 专门计算用户模板段物理地址的逻辑
+uint32_t user_to_phys(void *v_addr) {
+    uint32_t virt = (uint32_t)v_addr;
+    uint32_t v_start = (uint32_t)_user_text_vma_start;
+    uint32_t p_start = (uint32_t)_kernel_phys_end;
+
+    // 物理地址 = 物理基址 + (虚拟地址 - 虚拟基址)
+    return p_start + (virt - v_start);
+}
+
+void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth) {
+    // 1. 映射共享的用户代码“池” (使用修正后的物理偏移)
+    uint32_t text_p = (uint32_t)_kernel_phys_end;
+    uint32_t text_v = (uint32_t)_user_text_vma_start;
+    uint32_t text_size = (uint32_t)_user_text_vma_end - text_v;
+
+    for(uint32_t i = 0; i < text_size; i += 4096) {
+        map_page(pgd, text_v + i, text_p + i, PG_PRESENT | PG_USER); // 只读执行
+    }
+
+     /* 计算栈的大小（字节） */
+    uint32_t stack_size = user_stack_depth * sizeof( StackType_t );
+    /* 计算用户栈的物理地址 */
+    uint32_t user_stack_phys = (uint32_t)pmm_alloc_page(stack_size / 4096);
+
+    /* 计算用户栈的虚拟地址 */
+    uint32_t user_stack_virt = (uint32_t)user_stack_top;
+    /* 计算用户栈占用的页数 */
+    /* 假设 STACK_SIZE 是 4096 的倍数 */
+    uint32_t num_pages = (stack_size + 4095) / 4096;
+    size_t i;
+
+    /* 映射足够的页面（根据 STACK_SIZE 计算页数） */
+    for( i = 0; i < num_pages; i++ )
+    {
+        /* * 逻辑：
+        * 物理页：从 user_stack_phys 开始往上加 (i * 4096)
+        * 虚拟页：从 user_stack_virt 开始往下减 ((i + 1) * 4096)
+        * 注意：栈顶地址通常是该页的末尾，所以映射时要减去一整页
+        */
+        uint32_t phys_page = user_stack_phys + (i * 4096);
+        uint32_t virt_page = (user_stack_virt - stack_size) + (i * 4096);
+        map_page( pgd,
+                virt_page,
+                phys_page,
+                PG_PRESENT | PG_RW | PG_USER );
+    }
+}
+
 void mmu_init(void) {
-    kmalloc_init(page_directory, 16); /* 初始化内核堆，预分配 16 页 (64KB) */
     pmm_init(MEMORY_MAX_SIZE); /* 初始化物理内存管理器，假设总内存为 128MB */
+    /*kmalloc_init(page_directory, 16);*/ /* 初始化内核堆，预分配 16 页 (64KB) */
+    mmu_test(); /* 进行简单的映射测试，确保 MMU 工作正常 */
+}
+
+void mmu_test() {
+     // 尝试映射一个远处的地址
+    uint32_t test_virt = 0xDEADC000; // 虚拟地址
+    uint32_t test_phys = 0x2000000; // 物理 32MB 处
+    uint32_t* page_dir_virt = (uint32_t *)p2v((phys_addr_t)page_directory); // 获取第一个页目录的虚拟地址
+    map_page(page_dir_virt, test_virt, test_phys, PG_PRESENT | PG_RW | PG_USER);
+    /*load_page_directory((uint32_t)page_directory);*/ /* 刷新 TLB */
+
+    // 尝试写入
+    volatile uint32_t *ptr = (uint32_t*)test_virt;
+    *ptr = 0x12345678;
+
+    printf("Virtual 0xDEADC000 value: 0x%x\n", *ptr);
 }
