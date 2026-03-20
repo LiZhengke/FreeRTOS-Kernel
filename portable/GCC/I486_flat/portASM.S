@@ -121,7 +121,7 @@ vPortStartFirstTask:
     movl    pxCurrentTCB, %eax
 
     /* get pxCurrentTCB->mm. */
-    movl   12(%eax), %edx
+    movl   8(%eax), %edx
     /* get pxCurrentTCB->mm->pgd. */
     movl   (%edx), %edx
     /* Load the page directory base register with the physical address of the page directory. */

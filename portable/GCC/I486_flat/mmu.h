@@ -18,7 +18,7 @@ typedef uint32_t virt_addr_t;  /* 代表一个虚拟地址 */
 void init_paging(void);
 void map_page(uint32_t *dir, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags);
 void flush_tlb(uint32_t virtual_addr);
-void* kernel_malloc_page(pde_t* page_directory, size_t pages);
+void* kernel_malloc_page(pde_t* page_dir_virt, size_t pages);
 void create_user_page_directory(uint32_t* pgd_phys, uint32_t** pgd_virt);
 #define KERNEL_VIRT_START 0xC0000000
 #define KERNEL_VIRT_END   0xFFFFFFFF

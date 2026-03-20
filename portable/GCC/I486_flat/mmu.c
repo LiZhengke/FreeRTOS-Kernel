@@ -136,7 +136,7 @@ void create_user_page_directory(uint32_t* pgd_phys, uint32_t** pgd_virt) {
 
 }
 
-void* kernel_malloc_page(pde_t* page_directory, size_t pages) {
+void* kernel_malloc_page(pde_t* page_dir_virt, size_t pages) {
     /* 1. Find a free region in virtual memory */
     void* virt_addr = vmm_alloc(pages);
     if (!virt_addr) return NULL;
@@ -147,7 +147,7 @@ void* kernel_malloc_page(pde_t* page_directory, size_t pages) {
 
         /* 3. Establish the virtual-to-physical mapping */
         uint32_t current_v = (uint32_t)virt_addr + (i * PAGE_SIZE);
-        map_page(page_directory, current_v, phys_addr, PG_PRESENT | PG_RW);
+        map_page(page_dir_virt, current_v, phys_addr, PG_PRESENT | PG_RW);
     }
 
     return virt_addr;
@@ -208,7 +208,7 @@ void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth)
 
 void mmu_init(void) {
     pmm_init(MEMORY_MAX_SIZE); /* 初始化物理内存管理器，假设总内存为 128MB */
-    /*kmalloc_init(page_directory, 16);*/ /* 初始化内核堆，预分配 16 页 (64KB) */
+    kmalloc_init(p2v((phys_addr_t)page_directory), 16); /* 初始化内核堆，预分配 16 页 (64KB) */
     mmu_test(); /* 进行简单的映射测试，确保 MMU 工作正常 */
 }
 
