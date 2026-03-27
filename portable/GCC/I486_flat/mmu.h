@@ -38,6 +38,7 @@ inline phys_addr_t v2p(void* virt) {
 
 uint32_t user_to_phys(void *v_addr);
 void map_user_section(pde_t* pgd, void* user_stack_top , size_t user_stack_depth);
+void spawn_user_task(pde_t* pgd);
 
 __attribute__((section(".boot.text")))
 void load_page_directory(uint32_t pd);

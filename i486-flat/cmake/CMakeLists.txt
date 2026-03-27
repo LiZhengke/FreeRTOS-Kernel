@@ -66,9 +66,17 @@ target_compile_options(freertos_kernel PRIVATE
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-missing-variable-declarations>
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-covered-switch-default>
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-cast-align> )
+# 假设你的 user_task.bin 在这个位置
+set(USER_BIN_FILE "${CMAKE_SOURCE_DIR}/application/user_task.bin")
+
+message(STATUS "USER_BIN_FILE: ${USER_BIN_FILE}")
+# 为汇编文件添加宏定义，注意引号的转义
+set_source_files_properties(user_bin.S PROPERTIES
+    COMPILE_FLAGS "-DUSER_BIN_PATH=\"${USER_BIN_FILE}\"")
 
 add_executable(${PROJECT_NAME}
     ${PORT_I486_FLAT_PATH}/start.S
+    user_bin.S
     main.c
 )
 

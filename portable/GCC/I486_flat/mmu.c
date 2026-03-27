@@ -6,6 +6,7 @@
 #include "vmm.h"
 #include "heap_alloc.h"
 #include "FreeRTOS.h" // Add this to define StackType_t
+#include "port.h"    // Add this for memset and memcpy
 
 /* Extract the upper 20 bits of an address (aligned to 4KB) */
 #define PAGE_ADDR(addr) ((uint32_t)(addr) & 0xFFFFF000)
@@ -159,12 +160,14 @@ extern char _kernel_phys_end[];     /* 物理起始点 (比如 0x150000) */
 extern char _user_text_vma_end[];   /* 当前线程控制块，包含用户栈地址 */
 // 专门计算用户模板段物理地址的逻辑
 uint32_t user_to_phys(void *v_addr) {
-    uint32_t virt = (uint32_t)v_addr;
+/*    uint32_t virt = (uint32_t)v_addr;
     uint32_t v_start = (uint32_t)_user_text_vma_start;
     uint32_t p_start = (uint32_t)_kernel_phys_end;
 
     // 物理地址 = 物理基址 + (虚拟地址 - 虚拟基址)
     return p_start + (virt - v_start);
+    */
+   return (uint32_t)v_addr;
 }
 
 void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth) {
@@ -204,6 +207,30 @@ void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth)
                 phys_page,
                 PG_PRESENT | PG_RW | PG_USER );
     }
+}
+
+extern char _user_blobs_start[];
+extern char _user_blobs_end[];
+
+// 以后你可以根据需要定义多个二进制块
+// 或者在汇编里导出 _user_task_bin_start 符号
+
+void spawn_user_task(pde_t* pgd) {
+    // 获取用户程序在内核里的“缓存”位置
+    void* template_addr = (void*)&_user_blobs_start;
+    uint32_t template_size = (uint32_t)&_user_blobs_end - (uint32_t)&_user_blobs_start;
+
+    // 1. 准备物理页
+    uint32_t prog_phys = (uint32_t)pmm_alloc_page();
+
+    // 2. 拷贝！将“嵌入在内核里的二进制”搬运到“新的物理页”
+    // 注意：template_addr 是内核虚拟地址 (0xC0...)
+    //      p2v(prog_phys) 也是内核访问该物理页的虚拟地址
+    memcpy((void*)p2v(prog_phys), template_addr, template_size);
+
+    // 3. 映射到任务空间
+    // 虚拟地址 0x08048000 -> 物理页 prog_phys
+    map_page(pgd, 0x08048000, prog_phys, PG_PRESENT | PG_RW | PG_USER);
 }
 
 void mmu_init(void) {
