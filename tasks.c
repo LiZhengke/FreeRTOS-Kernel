@@ -431,24 +431,7 @@ void mm_destroy(mm_t *mm) {
     }
 }
 
-extern char _user_text_vma_start[];
-extern char _user_text_vma_end[];
-extern char _user_code_phys_start[];
 
-void map_user_segment(mm_t *mm) {
-    uint32_t v_start = (uint32_t)_user_text_vma_start;
-    uint32_t v_end   = (uint32_t)_user_text_vma_end;
-    uint32_t p_start = (uint32_t)_user_code_phys_start;
-    uint32_t offset = 0;
-    uint32_t size = v_end - v_start;
-    for (offset = 0; offset < size; offset += 4096) {
-        /* 建立映射：0x08048000 -> 物理地址 (1MB + 内核大小) */
-        map_page(mm->pgd,
-                 v_start + offset,
-                 p_start + offset,
-                 PG_PRESENT | PG_USER);
-    }
-}
 /*-----------------------------------------------------------*/
 
 /*

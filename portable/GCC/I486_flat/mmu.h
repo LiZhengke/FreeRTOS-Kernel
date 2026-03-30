@@ -23,7 +23,7 @@ void create_user_page_directory(uint32_t* pgd_phys, uint32_t** pgd_virt);
 #define KERNEL_VIRT_START 0xC0000000
 #define KERNEL_VIRT_END   0xFFFFFFFF
 #define KERNEL_OFFSET     KERNEL_VIRT_START
-
+#define USER_TEXT_VIRT_START   0x08048000
 /* 物理地址转内核虚拟地址 (Physical to Virtual) */
 inline void* p2v(phys_addr_t phys) {
     /* 只有在 1MB ~ __phys_end 范围内的物理地址才能用这个简单的宏转换 */

@@ -38,6 +38,7 @@
 #include "i8259.h"
 #include "tss.h"
 #include "port.h"
+#include "mmu.h"
 
 uint8_t ucHeap[1] __attribute__((section(".heap")));
 
@@ -266,7 +267,7 @@ StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
         pxTopOfStack--;
 
         /* First instruction in the task. */
-        *pxTopOfStack = ( StackType_t ) pxCode;
+        *pxTopOfStack = ( StackType_t ) USER_TEXT_VIRT_START;
         pxTopOfStack--;
 
     } else {

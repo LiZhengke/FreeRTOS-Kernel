@@ -171,14 +171,7 @@ uint32_t user_to_phys(void *v_addr) {
 }
 
 void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth) {
-    // 1. 映射共享的用户代码“池” (使用修正后的物理偏移)
-    uint32_t text_p = (uint32_t)_kernel_phys_end;
-    uint32_t text_v = (uint32_t)_user_text_vma_start;
-    uint32_t text_size = (uint32_t)_user_text_vma_end - text_v;
 
-    for(uint32_t i = 0; i < text_size; i += 4096) {
-        map_page(pgd, text_v + i, text_p + i, PG_PRESENT | PG_USER); // 只读执行
-    }
 
      /* 计算栈的大小（字节） */
     uint32_t stack_size = user_stack_depth * sizeof( StackType_t );
@@ -207,6 +200,8 @@ void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth)
                 phys_page,
                 PG_PRESENT | PG_RW | PG_USER );
     }
+    /* 映射用户代码段 */
+    spawn_user_task(pgd);
 }
 
 extern char _user_blobs_start[];
@@ -230,7 +225,7 @@ void spawn_user_task(pde_t* pgd) {
 
     // 3. 映射到任务空间
     // 虚拟地址 0x08048000 -> 物理页 prog_phys
-    map_page(pgd, 0x08048000, prog_phys, PG_PRESENT | PG_RW | PG_USER);
+    map_page(pgd, USER_TEXT_VIRT_START, prog_phys, PG_PRESENT | PG_RW | PG_USER);
 }
 
 void mmu_init(void) {
