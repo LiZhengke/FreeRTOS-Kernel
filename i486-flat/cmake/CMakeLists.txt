@@ -66,11 +66,44 @@ target_compile_options(freertos_kernel PRIVATE
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-missing-variable-declarations>
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-covered-switch-default>
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-cast-align> )
-# 假设你的 user_task.bin 在这个位置
-set(USER_BIN_FILE "${CMAKE_SOURCE_DIR}/application/user_task.bin")
+
+########################################################################
+# Build user_task.bin from user_task.S
+########################################################################
+set(USER_TASK_SRC "${CMAKE_SOURCE_DIR}/application/user_task.S")
+set(USER_TASK_OBJ "${CMAKE_BINARY_DIR}/user_task.o")
+set(USER_TASK_ELF "${CMAKE_BINARY_DIR}/user_task.elf")
+set(USER_BIN_FILE "${CMAKE_BINARY_DIR}/user_task.bin")
+
+add_custom_command(
+    OUTPUT ${USER_TASK_OBJ}
+    COMMAND ${CMAKE_ASM_COMPILER} -m32 -march=i486 -fno-pie -fno-pic -g -c ${USER_TASK_SRC} -o ${USER_TASK_OBJ}
+    DEPENDS ${USER_TASK_SRC}
+    COMMENT "Assembling user_task.S"
+    VERBATIM
+)
+
+add_custom_command(
+    OUTPUT ${USER_TASK_ELF}
+    COMMAND ${CMAKE_C_COMPILER} -m32 -nostdlib -no-pie -Wl,--build-id=none
+        -Wl,-Ttext=0x08048000 ${USER_TASK_OBJ} -o ${USER_TASK_ELF}
+    DEPENDS ${USER_TASK_OBJ}
+    COMMENT "Linking user_task.elf"
+    VERBATIM
+)
+
+add_custom_command(
+    OUTPUT ${USER_BIN_FILE}
+    COMMAND ${CMAKE_OBJCOPY} -O binary ${USER_TASK_ELF} ${USER_BIN_FILE}
+    DEPENDS ${USER_TASK_ELF}
+    COMMENT "Generating user_task.bin"
+    VERBATIM
+)
+
+add_custom_target(user_task_bin DEPENDS ${USER_BIN_FILE})
 
 message(STATUS "USER_BIN_FILE: ${USER_BIN_FILE}")
-# 为汇编文件添加宏定义，注意引号的转义
+
 set_source_files_properties(user_bin.S PROPERTIES
     COMPILE_FLAGS "-DUSER_BIN_PATH=\"${USER_BIN_FILE}\"")
 
@@ -79,6 +112,8 @@ add_executable(${PROJECT_NAME}
     user_bin.S
     main.c
 )
+
+add_dependencies(${PROJECT_NAME} user_task_bin)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${FREERTOS_KERNEL_PATH}/include

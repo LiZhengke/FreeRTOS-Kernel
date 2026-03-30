@@ -9,6 +9,7 @@ set(CMAKE_SYSTEM_PROCESSOR i486)
 set(CMAKE_C_COMPILER gcc)
 set(CMAKE_ASM_COMPILER gcc)
 set(CMAKE_LINKER ld)
+set(CMAKE_OBJCOPY objcopy)
 
 # Force 32-bit + freestanding
 set(COMMON_FLAGS "-m32 -ffreestanding -fno-pic -fno-pie -fno-stack-protector -fno-builtin -g -ggdb -Wall -Wextra -Werror")
