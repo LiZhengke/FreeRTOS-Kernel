@@ -27,6 +27,54 @@ __attribute__((section(".boot"), aligned(PAGE_SIZE)))
 static pte_t page_table2[1024] __attribute__((aligned(PAGE_SIZE)));
 #endif
 
+#if ( configRUN_ADDITIONAL_TESTS == 1 )
+    #define MMU_TEST_ASSERT( x )                                                                 \
+    do                                                                                            \
+    {                                                                                             \
+        if( ( x ) == 0 )                                                                          \
+        {                                                                                         \
+            printf( "[MMU TEST] FAIL: %s\n", #x );                                               \
+            for( ; ; )                                                                            \
+            {                                                                                     \
+            }                                                                                     \
+        }                                                                                         \
+    } while( 0 )
+
+    static void prvRunMmuUnitTests( void )
+    {
+        uint32_t testPhys = 0;
+        uint32_t * testPgd = NULL;
+        uint32_t testVirt = 0x00403000U;
+        uint32_t * testPt = NULL;
+        uint32_t pde = 0;
+        uint32_t pte = 0;
+
+        printf( "[MMU TEST] start\n" );
+
+        create_user_page_directory( &testPhys, &testPgd );
+        MMU_TEST_ASSERT( testPhys != 0U );
+        MMU_TEST_ASSERT( testPgd != NULL );
+
+        MMU_TEST_ASSERT( testPgd[ 0 ] == page_directory[ 0 ] );
+        MMU_TEST_ASSERT( testPgd[ KERNEL_PDE_START ] == page_directory[ KERNEL_PDE_START ] );
+        MMU_TEST_ASSERT( testPgd[ 1023 ] == page_directory[ 1023 ] );
+        MMU_TEST_ASSERT( testPgd[ 1 ] == 0U );
+
+        map_page( testPgd, testVirt, 0x00123000U, PG_RW | PG_USER );
+
+        pde = testPgd[ testVirt >> 22 ];
+        MMU_TEST_ASSERT( ( pde & PG_PRESENT ) != 0U );
+        testPt = ( uint32_t * ) p2v( pde & 0xFFFFF000U );
+        pte = testPt[ ( testVirt >> 12 ) & 0x3FFU ];
+        MMU_TEST_ASSERT( ( pte & 0xFFFFF000U ) == 0x00123000U );
+        MMU_TEST_ASSERT( ( pte & ( PG_PRESENT | PG_RW | PG_USER ) ) == ( PG_PRESENT | PG_RW | PG_USER ) );
+
+        MMU_TEST_ASSERT( user_to_phys( ( void * ) 0x08048000U ) == 0x08048000U );
+
+        printf( "[MMU TEST] PASS\n" );
+    }
+#endif
+
 void load_page_directory(uint32_t pd) {
     __asm volatile ("mov %0, %%cr3" :: "r" (pd));
 }
@@ -233,6 +281,11 @@ void spawn_user_task(pde_t* pgd) {
 void mmu_init(void) {
     pmm_init(MEMORY_MAX_SIZE); /* Initialize the physical memory manager (assume 128MB total RAM). */
     kmalloc_init(p2v((phys_addr_t)page_directory), 16); /* Initialize kernel heap, preallocating 16 pages (64KB). */
+
+    #if ( configRUN_ADDITIONAL_TESTS == 1 )
+        prvRunMmuUnitTests();
+    #endif
+
     mmu_test(); /* Run a simple mapping test to ensure MMU works correctly. */
 }
 

@@ -27,6 +27,7 @@
  */
 
 /* Standard includes. */
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -1374,6 +1375,15 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
              * structure. */
             volatile size_t xSize = sizeof( StaticTask_t );
             configASSERT( xSize == sizeof( TCB_t ) );
+
+            /* Regression checks for the TCB/StaticTask_t layout used by
+             * static allocation in i486-flat MMU builds. */
+            configASSERT( offsetof( TCB_t, pxTopOfStack ) == offsetof( StaticTask_t, pxDummy1 ) );
+            configASSERT( offsetof( TCB_t, pxStack ) == offsetof( StaticTask_t, pxDummy2 ) );
+            configASSERT( offsetof( TCB_t, mm ) == offsetof( StaticTask_t, pxDummy3 ) );
+            configASSERT( offsetof( TCB_t, active_mm ) == offsetof( StaticTask_t, pxDummy4 ) );
+            configASSERT( offsetof( TCB_t, xUserPrivilegeLevel ) == offsetof( StaticTask_t, xDummy5 ) );
+            configASSERT( offsetof( TCB_t, xUserStackDepth ) == offsetof( StaticTask_t, xDummy6 ) );
             ( void ) xSize; /* Prevent unused variable warning when configASSERT() is not used. */
         }
         #endif /* configASSERT_DEFINED */

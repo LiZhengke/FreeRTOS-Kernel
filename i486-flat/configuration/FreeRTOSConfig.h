@@ -700,6 +700,7 @@
 
 #define configUSE_PAGE_ASMBLE_CODE   0
 #define configSUPPORT_PAGE_TABLE_TWO 1
+#define configRUN_ADDITIONAL_TESTS   1
 
 #define cpuPRIVILEGE_LEVEL_0    0 /* Highest privilege level. */
 #define cpuPRIVILEGE_LEVEL_1    1
