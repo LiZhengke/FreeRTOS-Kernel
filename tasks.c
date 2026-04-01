@@ -444,9 +444,10 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     volatile StackType_t * pxTopOfStack; /**< Points to the location of the last item placed on the tasks stack.  THIS MUST BE THE FIRST MEMBER OF THE TCB STRUCT. */
     volatile StackType_t * pxStack;                      /**< Points to the start of the stack. */
     mm_t *mm; /**< The memory management structure for the task. */
+    mm_t *active_mm; /**< The memory management structure currently active for the task. This is used to support execve() where the memory management structure can change during the lifetime of a task. */
+    cpu_privilege_level_t xUserPrivilegeLevel;  /**< The privilege level of the user stack. */
 
     size_t xUserStackDepth;                       /**< The size of the stack allocated to the task.  This is 0 if the stack was statically allocated. */
-    cpu_privilege_level_t xUserPrivilegeLevel;  /**< The privilege level of the user stack. */
 
     #if ( portUSING_MPU_WRAPPERS == 1 )
         xMPU_SETTINGS xMPUSettings; /**< The MPU settings are defined as part of the port layer.  THIS MUST BE THE SECOND MEMBER OF THE TCB STRUCT. */
@@ -5223,6 +5224,7 @@ BaseType_t xTaskIncrementTick( void )
 #if ( configNUMBER_OF_CORES == 1 )
     void vTaskSwitchContext( void )
     {
+        TCB_t * volatile pxPreTCB = NULL;
         traceENTER_vTaskSwitchContext();
 
         if( uxSchedulerSuspended != ( UBaseType_t ) 0U )
@@ -5279,13 +5281,25 @@ BaseType_t xTaskIncrementTick( void )
             /* MISRA Ref 11.5.3 [Void pointer assignment] */
             /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-115 */
             /* coverity[misra_c_2012_rule_11_5_violation] */
+            pxPreTCB = pxCurrentTCB;
             taskSELECT_HIGHEST_PRIORITY_TASK();
             traceTASK_SWITCHED_IN();
 
             /* Macro to inject port specific behaviour immediately after
              * switching tasks, such as setting an end of stack watchpoint
              * or reconfiguring the MPU. */
-            portTASK_SWITCH_HOOK( pxCurrentTCB );
+            if( pxPreTCB != pxCurrentTCB )
+            {
+                /*portTASK_SWITCH_HOOK(pxPreTCB, pxCurrentTCB );*/
+                if ((pxCurrentTCB->xUserPrivilegeLevel & 0x03) == cpuPRIVILEGE_LEVEL_3)
+                    tss_set_esp0((uint32_t)(pxCurrentTCB->pxStack + pxCurrentTCB->xUserStackDepth));
+                if(pxCurrentTCB->mm != NULL) {
+                    pxCurrentTCB->active_mm = pxCurrentTCB->mm;
+                    load_page_directory(pxCurrentTCB->active_mm->pgd_phys);
+                }else{
+                    pxCurrentTCB->active_mm = pxPreTCB->active_mm;
+                }
+            }
 
             /* After the new task is switched in, update the global errno. */
             #if ( configUSE_POSIX_ERRNO == 1 )

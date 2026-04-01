@@ -688,11 +688,15 @@
 
 #define configENABLE_PRINT_ESP                 0
 
-#define portTASK_SWITCH_HOOK( pxTCB ) \
+#define portTASK_SWITCH_HOOK(pxOldTCB, pxTCB ) \
     if ((pxTCB->xUserPrivilegeLevel & 0x03) == cpuPRIVILEGE_LEVEL_3) \
         tss_set_esp0((uint32_t)(pxTCB->pxStack + pxTCB->xUserStackDepth)); \
-    if(pxTCB->mm != NULL) \
-        load_page_directory(pxTCB->mm->pgd_phys);
+    if(pxTCB->mm != NULL) { \
+        pxTCB->active_mm = pxTCB->mm; \
+        load_page_directory(pxTCB->active_mm->pgd_phys); \
+    }else{ \
+        pxTCB->active_mm = pxOldTCB->active_mm; \
+    }
 
 #define configUSE_PAGE_ASMBLE_CODE   0
 #define configSUPPORT_PAGE_TABLE_TWO 1

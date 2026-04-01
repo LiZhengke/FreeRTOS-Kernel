@@ -132,6 +132,8 @@ void create_user_page_directory(uint32_t* pgd_phys, uint32_t** pgd_virt) {
         pd[i] = page_directory[i];
     }
 
+    pd[0] = page_directory[0];
+
     if (pgd_phys) *pgd_phys = new_pd_phys;
     if (pgd_virt) *pgd_virt = pd;
 

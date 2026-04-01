@@ -3169,62 +3169,63 @@ typedef struct xSTATIC_TCB
 {
     void * pxDummy1;
     void * pxDummy2;
-    size_t xDummy3;
-    cpu_privilege_level_t xDummy4;
-    void * pxDummy5; /* Mirrors the MMU/address-space pointer stored in TCB_t. */
+    void * pxDummy3;                    /* Mirrors mm pointer in TCB_t. */
+    void * pxDummy4;                    /* Mirrors active_mm pointer in TCB_t. */
+    cpu_privilege_level_t xDummy5;
+    size_t xDummy6;
     #if ( portUSING_MPU_WRAPPERS == 1 )
-        xMPU_SETTINGS xDummy6;
+        xMPU_SETTINGS xDummy7;
     #endif
     #if ( configUSE_CORE_AFFINITY == 1 ) && ( configNUMBER_OF_CORES > 1 )
-        UBaseType_t uxDummy7;
+        UBaseType_t uxDummy8;
     #endif
-    StaticListItem_t xDummy8[ 2 ];
-    UBaseType_t uxDummy9;
+    StaticListItem_t xDummy9[ 2 ];
+    UBaseType_t uxDummy10;
     #if ( configNUMBER_OF_CORES > 1 )
-        BaseType_t xDummy10;
-        UBaseType_t uxDummy11;
+        BaseType_t xDummy11;
+        UBaseType_t uxDummy12;
     #endif
-    uint8_t ucDummy12[ configMAX_TASK_NAME_LEN ];
+    uint8_t ucDummy13[ configMAX_TASK_NAME_LEN ];
     #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-        BaseType_t xDummy13;
+        BaseType_t xDummy14;
     #endif
     #if ( ( portSTACK_GROWTH > 0 ) || ( configRECORD_STACK_HIGH_ADDRESS == 1 ) )
-        void * pxDummy14;
+        void * pxDummy15;
     #endif
     #if ( portCRITICAL_NESTING_IN_TCB == 1 )
-        UBaseType_t uxDummy15;
+        UBaseType_t uxDummy16;
     #endif
     #if ( configUSE_TRACE_FACILITY == 1 )
-        UBaseType_t uxDummy16[ 2 ];
-    #endif
-    #if ( configUSE_MUTEXES == 1 )
         UBaseType_t uxDummy17[ 2 ];
     #endif
+    #if ( configUSE_MUTEXES == 1 )
+        UBaseType_t uxDummy18[ 2 ];
+    #endif
     #if ( configUSE_APPLICATION_TASK_TAG == 1 )
-        void * pxDummy18;
+        void * pxDummy19;
     #endif
     #if ( configNUM_THREAD_LOCAL_STORAGE_POINTERS > 0 )
-        void * pvDummy19[ configNUM_THREAD_LOCAL_STORAGE_POINTERS ];
+        void * pvDummy20[ configNUM_THREAD_LOCAL_STORAGE_POINTERS ];
     #endif
     #if ( configGENERATE_RUN_TIME_STATS == 1 )
-        configRUN_TIME_COUNTER_TYPE ulDummy20;
+        configRUN_TIME_COUNTER_TYPE ulDummy21;
     #endif
     #if ( configUSE_C_RUNTIME_TLS_SUPPORT == 1 )
-        configTLS_BLOCK_TYPE xDummy21;
+        configTLS_BLOCK_TYPE xDummy22;
     #endif
     #if ( configUSE_TASK_NOTIFICATIONS == 1 )
-        uint32_t ulDummy22[ configTASK_NOTIFICATION_ARRAY_ENTRIES ];
-        uint8_t ucDummy23[ configTASK_NOTIFICATION_ARRAY_ENTRIES ];
+        uint32_t ulDummy23[ configTASK_NOTIFICATION_ARRAY_ENTRIES ];
+        uint8_t ucDummy24[ configTASK_NOTIFICATION_ARRAY_ENTRIES ];
     #endif
     #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 )
-        uint8_t uxDummy24;
+        uint8_t uxDummy25;
     #endif
 
     #if ( INCLUDE_xTaskAbortDelay == 1 )
-        uint8_t ucDummy25;
+        uint8_t ucDummy26;
     #endif
     #if ( configUSE_POSIX_ERRNO == 1 )
-        int iDummy26;
+        int iDummy27;
     #endif
 } StaticTask_t;
 

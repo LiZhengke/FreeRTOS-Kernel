@@ -25,6 +25,7 @@ static int sys_printf(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a
 static int sys_panic(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_tick_count(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
+static int sys_get_task_name(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 
 syscall_t syscall_table[SYS_MAX] = {
     sys_yield,
@@ -37,7 +38,8 @@ syscall_t syscall_table[SYS_MAX] = {
     sys_printf,
     sys_panic,
     sys_task_create,
-    sys_tick_count
+    sys_tick_count,
+    sys_get_task_name
 };
 
 
@@ -207,6 +209,23 @@ static int sys_tick_count(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32
     return (int)xTaskGetTickCount();
 }
 
+static int sys_get_task_name(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
+{
+    (void)a2; (void)a3; (void)a4;
+    char *buf = (char *)a0;
+    uint32_t len = a1;
+
+    if (buf == NULL || len == 0)
+        return -EINVAL;
+
+    const char *name = pcTaskGetName(NULL);
+    uint32_t i;
+    for (i = 0; i < len - 1 && name[i] != '\0'; i++)
+        buf[i] = name[i];
+    buf[i] = '\0';
+    return 0;
+}
+
 /*--------------------------------------------------------------------- */
 /* User-space syscall wrappers. These functions can be called by user tasks to
  * invoke system calls.
@@ -284,5 +303,19 @@ int32_t uSysPrintf(const char *fmt, ...)
     );
 
     va_end(args);
+    return ret;
+}
+
+int32_t uSysGetTaskName(char *buf, uint32_t len)
+{
+    int32_t ret;
+    asm volatile (
+        "int $" STR(SYSINT)
+        : "=a"(ret)
+        : "a"(SYS_GET_TASK_NAME),
+          "b"(buf),
+          "c"(len)
+        : "memory"
+    );
     return ret;
 }

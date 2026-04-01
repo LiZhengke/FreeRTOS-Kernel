@@ -23,6 +23,7 @@ enum {
     SYS_PANIC,
     SYS_TASK_CREATE,
     SYS_TICK_COUNT,
+    SYS_GET_TASK_NAME,
     SYS_MAX
 };
 
@@ -36,4 +37,5 @@ int32_t uSysTaskCreate(void (*taskFunction)(void *), const char *taskName,
                        void *pvParameters);
 int32_t uSysGetTickCount(void);
 int32_t uSysPrintf(const char *fmt, ...);
+int32_t uSysGetTaskName(char *buf, uint32_t len);
 #endif /* SYSCALL_H */

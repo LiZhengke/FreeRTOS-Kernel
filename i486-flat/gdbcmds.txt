@@ -19,8 +19,9 @@ b vStartMainTask
 #b prvCreateStaticTask
 #b uSysCallDispatch
 #b vPortYieldCall
+b vTaskSwitchContext
 b sys_task_create
-b tss_set_esp0
+#b tss_set_esp0
 b uSysTaskCreate
 #b kmalloc_init
 #b pmm_init
@@ -37,3 +38,4 @@ display/i $eip
 #display/x $eflags
 display/x $esp
 
+b tasks.c:5294

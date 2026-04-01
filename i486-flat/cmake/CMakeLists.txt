@@ -68,26 +68,39 @@ target_compile_options(freertos_kernel PRIVATE
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-cast-align> )
 
 ########################################################################
-# Build user_task.bin from user_task.S
+# Build user_task.bin from start.S + user_task.c
 ########################################################################
-set(USER_TASK_SRC "${CMAKE_SOURCE_DIR}/application/user_task.S")
-set(USER_TASK_OBJ "${CMAKE_BINARY_DIR}/user_task.o")
-set(USER_TASK_ELF "${CMAKE_BINARY_DIR}/user_task.elf")
-set(USER_BIN_FILE "${CMAKE_BINARY_DIR}/user_task.bin")
+set(USER_APP_DIR "${CMAKE_SOURCE_DIR}/application")
+set(USER_START_SRC "${USER_APP_DIR}/start.S")
+set(USER_TASK_SRC  "${USER_APP_DIR}/user_task.c")
+set(USER_START_OBJ "${CMAKE_BINARY_DIR}/user_start.o")
+set(USER_TASK_OBJ  "${CMAKE_BINARY_DIR}/user_task.o")
+set(USER_TASK_ELF  "${CMAKE_BINARY_DIR}/user_task.elf")
+set(USER_BIN_FILE  "${CMAKE_BINARY_DIR}/user_task.bin")
+
+set(USER_CFLAGS -m32 -march=i486 -ffreestanding -fno-pic -fno-pie -fno-stack-protector -fno-builtin -Os)
+
+add_custom_command(
+    OUTPUT ${USER_START_OBJ}
+    COMMAND ${CMAKE_ASM_COMPILER} -m32 -march=i486 -fno-pie -fno-pic -c ${USER_START_SRC} -o ${USER_START_OBJ}
+    DEPENDS ${USER_START_SRC}
+    COMMENT "Assembling user start.S"
+    VERBATIM
+)
 
 add_custom_command(
     OUTPUT ${USER_TASK_OBJ}
-    COMMAND ${CMAKE_ASM_COMPILER} -m32 -march=i486 -fno-pie -fno-pic -g -c ${USER_TASK_SRC} -o ${USER_TASK_OBJ}
+    COMMAND ${CMAKE_C_COMPILER} ${USER_CFLAGS} -c ${USER_TASK_SRC} -o ${USER_TASK_OBJ}
     DEPENDS ${USER_TASK_SRC}
-    COMMENT "Assembling user_task.S"
+    COMMENT "Compiling user_task.c"
     VERBATIM
 )
 
 add_custom_command(
     OUTPUT ${USER_TASK_ELF}
     COMMAND ${CMAKE_C_COMPILER} -m32 -nostdlib -no-pie -Wl,--build-id=none
-        -Wl,-Ttext=0x08048000 ${USER_TASK_OBJ} -o ${USER_TASK_ELF}
-    DEPENDS ${USER_TASK_OBJ}
+        -T ${USER_APP_DIR}/user.ld ${USER_START_OBJ} ${USER_TASK_OBJ} -o ${USER_TASK_ELF}
+    DEPENDS ${USER_START_OBJ} ${USER_TASK_OBJ} ${USER_APP_DIR}/user.ld
     COMMENT "Linking user_task.elf"
     VERBATIM
 )
