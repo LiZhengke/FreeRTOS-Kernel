@@ -61,26 +61,27 @@ SECTIONS
     }
 
     _kernel_phys_end = . - KERNEL_VMA;
-    _user_code_phys_start = _kernel_phys_end; /* 记录用户代码段的物理起始地址 */
+    _user_code_phys_start = _kernel_phys_end; /* Record the physical start address of the user code section. */
     /* ==========================================================
-     * 3. 用户态模版段 (User Section Templates)
-     * 这些代码会被链接器放在内核镜像的末尾（物理上），但编译器认为它们在 0x08048000
+     * 3. User section templates (User Section Templates)
+     * These are placed physically at the end of the kernel image,
+     * while the compiler treats them as located at 0x08048000.
      * ========================================================== */
 
-    /* 定义用户代码段的运行起始地址 */
+    /* Define the runtime start address for user code section. */
     . = 0x08048000;
 
     .user_text ALIGN(4K) : AT(_kernel_phys_end)
     {
         _user_text_vma_start = .;
-        *(.user_text)  /* 存放所有的用户函数和 exit 包装器 */
+        *(.user_text)  /* Store all user functions and exit wrappers. */
         _user_text_vma_end = .;
     }
 
-    /* 更新物理指针，紧跟在 user_text 物理空间之后 */
+    /* Update physical pointer to follow the user_text physical region. */
     _user_data_phys_template = _kernel_phys_end + SIZEOF(.user_text);
 
-    . = ALIGN(4K); /* 数据段也保持页对齐，方便单独映射 */
+    . = ALIGN(4K); /* Keep data section page-aligned for independent mapping. */
     .user_data ALIGN(4K) : AT(_user_data_phys_template)
     {
         _user_data_vma_start = .;
@@ -89,18 +90,18 @@ SECTIONS
         _user_data_vma_end = .;
     }
 
-    . = ALIGN(4K); /* Stack段也保持页对齐，方便单独映射 */
+    . = ALIGN(4K); /* Keep stack section page-aligned for independent mapping. */
     .user_stack ALIGN(4K) : AT(_user_data_phys_template + SIZEOF(.user_data))
     {
         _user_stack_vma_start = .;
         *(.user_stack)
         _user_stack_vma_end = .;
     }
-    /* 记录所有用户模版占用的总物理结束位置 */
+    /* Record the final physical end after all user templates. */
     _user_templates_phys_end = _user_data_phys_template + SIZEOF(.user_data) + SIZEOF(.user_stack);
 
     /* ==========================================================
-     * 4. 回归内核空间：定义堆和栈
+     * 4. Return to kernel space: define heap and stack.
      * ========================================================== */
     . = KERNEL_VMA + _user_templates_phys_end;
     . = ALIGN(4K);

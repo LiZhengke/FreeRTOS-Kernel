@@ -120,7 +120,7 @@ _higher_half:
     movl $__stack_top, %esp
     movl $__stack_top, %ebp
 
-    # 可选：清空 ebp 方便回溯
+    # Optional: clear EBP to simplify stack backtracing.
     xor %ebp, %ebp
     /* ----- 8. Enter C code ----- */
     call mmu_init

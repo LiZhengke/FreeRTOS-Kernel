@@ -3,14 +3,14 @@
 
 .code32
 
-# 建议使用专门的段名，方便在链接脚本中精确控制
+# Use a dedicated section name to allow precise control in the linker script.
 .section .user_bin, "a"
 
-# 极其重要：确保二进制块在内核镜像中是页对齐的（4096 字节）
-# 这样你 memcpy 时，源地址和目的地址都是 0x...000 对齐，不会出错
+# Very important: ensure the binary blob is page-aligned (4096 bytes) in the kernel image.
+# This keeps both source and destination addresses 0x...000 aligned during memcpy.
 .align 4096
 
 .incbin STR(USER_BIN_PATH)
 
-# 结尾也对齐，确保计算出来的 size 是 4KB 的整数倍（可选，但推荐）
+# Align the end as well so computed size is a multiple of 4KB (optional but recommended).
 .align 4096

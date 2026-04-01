@@ -3,13 +3,13 @@
 OUTPUT_FORMAT(elf32-i386)
 ENTRY(_start)
 
-KERNEL_VMA = 0xC0000000;   /* 虚拟基地址 */
-KERNEL_LMA = 0x00100000;   /* 物理加载地址 */
+KERNEL_VMA = 0xC0000000;   /* Virtual base address. */
+KERNEL_LMA = 0x00100000;   /* Physical load address. */
 
 SECTIONS
 {
     /* ========================================
-     * 1. 引导段：运行在物理地址
+     * 1. Boot section: runs at physical addresses.
      * ======================================== */
     . = KERNEL_LMA;
 
@@ -20,12 +20,12 @@ SECTIONS
     }
 
     /* ========================================
-     * 2. 切换到高半部虚拟地址
+     * 2. Switch to high-half virtual addresses.
      * ======================================== */
     . += KERNEL_VMA;
 
     /* -------------------- */
-    /* 内核代码和只读数据     */
+    /* Kernel code and read-only data */
     /* -------------------- */
     .text ALIGN(4K) : AT(ADDR(.text) - KERNEL_VMA)
     {
@@ -35,20 +35,20 @@ SECTIONS
     }
 
     /* ----------------------------------------------------------
-     * 3. 用户程序二进制块 (User Blobs)
-     * 这里存放通过 .incbin 导入的 user_task.bin
-     * 它们在内核眼中只是数据，不再尝试映射到 0x08048000
+     * 3. User program binary blobs (User Blobs)
+     * Store user_task.bin imported via .incbin here.
+     * To the kernel these are data blobs, not direct mappings to 0x08048000.
      * ---------------------------------------------------------- */
     .user_blobs ALIGN(4K) : AT(ADDR(.user_blobs) - KERNEL_VMA)
     {
         _user_blobs_start = .;
-        *(.user_bin)   /* 对应汇编中的 .section .user_bin */
+        *(.user_bin)   /* Corresponds to .section .user_bin in assembly. */
         . = ALIGN(4K);
         _user_blobs_end = .;
     }
 
     /* -------------------- */
-    /* 内核数据段           */
+    /* Kernel data section */
     /* -------------------- */
     .data ALIGN(4K) : AT(ADDR(.data) - KERNEL_VMA)
     {
@@ -58,7 +58,7 @@ SECTIONS
     }
 
     /* -------------------- */
-    /* 内核 BSS 段          */
+    /* Kernel BSS section */
     /* -------------------- */
     .bss ALIGN(4K) : AT(ADDR(.bss) - KERNEL_VMA)
     {
@@ -69,23 +69,23 @@ SECTIONS
     }
 
     /* -------------------- */
-    /* 内核堆和栈           */
+    /* Kernel heap and stack */
     /* -------------------- */
     . = ALIGN(4K);
     __heap_start = .;
     .heap : AT(ADDR(.heap) - KERNEL_VMA)
     {
         *(.heap)
-        . += 64K;  /* 预留 64KB 堆空间 */
+        . += 64K;  /* Reserve 64KB heap space. */
     }
     __heap_end = .;
 
     . = ALIGN(16);
     __stack_bottom = .;
-    . += 64K;      /* 预留 64KB 内核栈空间 */
+    . += 64K;      /* Reserve 64KB kernel stack space. */
     __stack_top = .;
 
-    /* 符号导出：用于物理内存管理 */
+    /* Export symbols for physical memory management. */
     _kernel_end = .;
     __phys_start = KERNEL_LMA;
     __phys_end = . - KERNEL_VMA;
