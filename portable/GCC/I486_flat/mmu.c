@@ -40,6 +40,58 @@ static pte_t page_table2[1024] __attribute__((aligned(PAGE_SIZE)));
         }                                                                                         \
     } while( 0 )
 
+
+    static void mmu_test() {
+        uint32_t test_virt = 0xDEADC000; // Virtual address.
+        uint32_t test_phys = 0x2000000; // Physical address at 32MB.
+        uint32_t* page_dir_virt = (uint32_t *)p2v((phys_addr_t)page_directory); // Get virtual address of the first page directory.
+        map_page(page_dir_virt, test_virt, test_phys, PG_PRESENT | PG_RW | PG_USER);
+        /*load_page_directory((uint32_t)page_directory);*/ /* Refresh TLB. */
+
+        // Try writing.
+        volatile uint32_t *ptr = (uint32_t*)test_virt;
+        *ptr = 0x12345678;
+
+        MMU_TEST_ASSERT( *ptr == 0x12345678 ); /* Verify the value is correctly written and read back. */
+    }
+
+    static void cpuid_test(uint32_t eax_in) {
+        uint32_t eax, ebx, ecx, edx;
+        __asm__ volatile (
+            "cpuid"
+            : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+            : "a" (eax_in)
+        );
+        switch (eax_in)
+        {
+        case 0:
+            char vendor[13];
+            memcpy(vendor, &ebx, 4);
+            memcpy(vendor + 4, &edx, 4);
+            memcpy(vendor + 8, &ecx, 4);
+            vendor[12] = '\0';
+            printf("CPU Vendor: %s\n", vendor);
+            break;
+        case 1:
+            printf("CPU Family: %s, Model: %s, Stepping: %d\n",
+                ((eax >> 8) & 0xF) == 4 ? "486" : ((eax >> 8) & 0xF) == 5 ? "Pentium" : "Unknown",
+                ((eax >> 4) & 0xF) == 0 ? "DX" : ((eax >> 4) & 0xF) == 1 ? "SX" : "Other",
+                eax & 0xF);
+            printf("CPU Features - FPU: %d, VME: %d, DE: %d, PSE: %d, TSC: %d, MSR: %d, PAE: %d, MCE: %d, \
+                CX8: %d,APIC: %d,MTRR: %d,SEP: %d,RR: %d,PGE: %d\n",
+                (edx >> 0) & 1, (edx >> 1) & 1, (edx >> 2) & 1, (edx >> 3) & 1,
+                (edx >> 4) & 1, (edx >> 5) & 1, (edx >> 6) & 1, (edx >> 7) & 1,
+                (edx >> 8) & 1, (edx >> 9) & 1, (edx >> 10) & 1, (edx >> 11) & 1,
+                (edx >> 12) & 1, (edx >> 13) & 1);
+
+        break;
+        default:
+            break;
+        }
+
+        // printf("CPU EAX: 0x%08x, EBX: 0x%08X, ECX: 0x%08X, EDX: 0x%08X\n", eax, ebx, ecx, edx);
+    }
+
     static void prvRunMmuUnitTests( void )
     {
         uint32_t testPhys = 0;
@@ -71,6 +123,9 @@ static pte_t page_table2[1024] __attribute__((aligned(PAGE_SIZE)));
 
         MMU_TEST_ASSERT( user_to_phys( ( void * ) 0x08048000U ) == 0x08048000U );
 
+        mmu_test(); /* Run a simple mapping test to ensure MMU works correctly. */
+        cpuid_test(0); /* Run a simple CPUID test to verify CPU vendor string retrieval. */
+        cpuid_test(1); /* Run CPUID with EAX=1 to get feature information. */
         printf( "[MMU TEST] PASS\n" );
     }
 #endif
@@ -101,7 +156,7 @@ void init_paging() {
         // Write physical address (i * 4KB) into the page table.
         page_table[i] = (i * 0x1000) | PG_PRESENT | PG_RW;
 #if configSUPPORT_PAGE_TABLE_TWO == 1
-        page_table2[i] = ((i + 1024) * 0x1000) | PG_PRESENT | PG_RW;
+        page_table2[i] = (i * 0x1000 + 0x400000) | PG_PRESENT | PG_RW;
 #endif
     }
 
@@ -285,21 +340,4 @@ void mmu_init(void) {
     #if ( configRUN_ADDITIONAL_TESTS == 1 )
         prvRunMmuUnitTests();
     #endif
-
-    mmu_test(); /* Run a simple mapping test to ensure MMU works correctly. */
-}
-
-void mmu_test() {
-     // Try mapping a far virtual address.
-    uint32_t test_virt = 0xDEADC000; // Virtual address.
-    uint32_t test_phys = 0x2000000; // Physical address at 32MB.
-    uint32_t* page_dir_virt = (uint32_t *)p2v((phys_addr_t)page_directory); // Get virtual address of the first page directory.
-    map_page(page_dir_virt, test_virt, test_phys, PG_PRESENT | PG_RW | PG_USER);
-    /*load_page_directory((uint32_t)page_directory);*/ /* Refresh TLB. */
-
-    // Try writing.
-    volatile uint32_t *ptr = (uint32_t*)test_virt;
-    *ptr = 0x12345678;
-
-    printf("Virtual 0xDEADC000 value: 0x%x\n", *ptr);
 }

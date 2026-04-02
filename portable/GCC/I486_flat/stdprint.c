@@ -32,6 +32,36 @@ static void print_uint(unsigned int value, unsigned int base)
     }
 }
 
+static void print_uint_formatted(unsigned long value,
+                                 unsigned int base,
+                                 int width,
+                                 int zero_pad,
+                                 int uppercase)
+{
+    char buf[32];
+    int i = 0;
+
+    do {
+        unsigned int digit = (unsigned int)(value % base);
+        if (digit < 10U) {
+            buf[i++] = (char)('0' + digit);
+        } else {
+            const char hex_base = uppercase ? 'A' : 'a';
+            buf[i++] = (char)(hex_base + digit - 10U);
+        }
+        value /= base;
+    } while ((value != 0UL) && (i < (int)sizeof(buf)));
+
+    while (i < width) {
+        putchar(zero_pad ? '0' : ' ');
+        width--;
+    }
+
+    while (i--) {
+        putchar(buf[i]);
+    }
+}
+
 static void print_int(int value)
 {
     if (value < 0) {
@@ -86,6 +116,19 @@ static int vprintf_internal(const char *__restrict __format, va_list __ap)
 
         __format++;  // skip %
 
+        int zero_pad = 0;
+        int width = 0;
+
+        if (*__format == '0') {
+            zero_pad = 1;
+            __format++;
+        }
+
+        while ((*__format >= '0') && (*__format <= '9')) {
+            width = (width * 10) + (*__format - '0');
+            __format++;
+        }
+
         // Check for 'l' length modifier
         int is_long = 0;
         if (*__format == 'l') {
@@ -105,9 +148,21 @@ static int vprintf_internal(const char *__restrict __format, va_list __ap)
             break;
         }
 
-        case 'x': {
-            unsigned int value = va_arg(__ap, unsigned int);
-            print_uint(value, 16);
+        case 'x':
+        case 'X': {
+            unsigned long value;
+
+            if (is_long) {
+                value = va_arg(__ap, unsigned long);
+            } else {
+                value = va_arg(__ap, unsigned int);
+            }
+
+            print_uint_formatted(value,
+                                 16,
+                                 width,
+                                 zero_pad,
+                                 (*__format == 'X'));
             break;
         }
 

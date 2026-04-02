@@ -47,6 +47,5 @@ __attribute__((section(".boot.text")))
 void enable_paging(void);
 
 void mmu_init(void);
-void mmu_test(void);
 
 #endif /* MMU_H */
