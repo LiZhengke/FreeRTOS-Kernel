@@ -818,12 +818,11 @@ void vStartMainTask( void )
     printf( "vStartMainTask %p\n", ( void * ) &vStartMainTask );
     printf( "mainKernelStack=%p\n", ( void * ) mainKernelStack);
 
-    extern void main( void * parameters );
 
     /* Initialise the Task State Segment (TSS) to provide a stack for interrupts. */
     ( void ) puts( "init_tss\n" );
     init_tss( 0 );
-    ( void ) xTaskCreateStatic( main,
+    ( void ) xTaskCreateStatic( NULL,
                                 "Main",
                                 STACK_SIZE / 4, /* Kernel and user stacks. */
                                 NULL,
