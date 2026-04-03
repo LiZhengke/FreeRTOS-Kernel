@@ -39,6 +39,7 @@
 #include "tss.h"
 #include "port.h"
 #include "mmu.h"
+#include "task_internal.h"
 
 uint8_t ucHeap[1] __attribute__((section(".heap")));
 
@@ -424,6 +425,7 @@ static void prvTaskExitError( void )
     }
 }
 /*-----------------------------------------------------------*/
+
 #if (configUSE_APIC == 1)
 static void prvSetupTimerInterrupt( void )
 {
@@ -808,29 +810,45 @@ int putchar(int c)
     outb(0x3F8, (char)c);   // COM1 port
     return c;
 }
+
 #define STACK_SIZE (configMINIMAL_STACK_SIZE * 4) /* Kernel and user stacks. */
 
 void vStartMainTask( void )
 {
-    static StaticTask_t mainTaskTCB;
-    static StackType_t mainKernelStack[ STACK_SIZE ];
+    TaskHandle_t xMainTaskHandle = NULL;
+    BaseType_t xResult;
 
     printf( "vStartMainTask %p\n", ( void * ) &vStartMainTask );
-    printf( "mainKernelStack=%p\n", ( void * ) mainKernelStack);
 
-
-    /* Initialise the Task State Segment (TSS) to provide a stack for interrupts. */
     ( void ) puts( "init_tss\n" );
     init_tss( 0 );
-    ( void ) xTaskCreateStatic( NULL,
-                                "Main",
-                                STACK_SIZE / 4, /* Kernel and user stacks. */
-                                NULL,
-                                configMAX_PRIORITIES - 1U,
-                                &( mainKernelStack[ 0 ] ),
-                                cpuPRIVILEGE_LEVEL_3,
-                                &( mainTaskTCB ) );
 
-    /* Start the scheduler. */
+    TaskArgs_t xMainTaskArgs = {
+        .tsk_type = TASK_PROCESS,
+        .xUserPrivilegeLevel = cpuPRIVILEGE_LEVEL_3,
+        .user_stack_top = 0xBFFFF000, /* Just below the end of the user space. */
+        .brk = 0x40000000,           /* Heap starts at 1 GB */
+    };
+
+    xResult = xTaskCreate( NULL,
+                           "Main",
+                           STACK_SIZE / 4, /* Stack depth in words. */
+                           &xMainTaskArgs,
+                           configMAX_PRIORITIES - 1U,
+                           cpuPRIVILEGE_LEVEL_3,
+                           &xMainTaskHandle );
+
+    if( xResult != pdPASS )
+    {
+        printf( "xTaskCreate Main failed: %ld\n", ( long ) xResult );
+    }
+    else if( xMainTaskHandle == NULL )
+    {
+        ( void ) puts( "xTaskCreate Main returned NULL handle\n" );
+    }
+
+    configASSERT( xResult == pdPASS );
+    configASSERT( xMainTaskHandle != NULL );
+
     vTaskStartScheduler();
 }

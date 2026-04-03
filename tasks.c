@@ -46,6 +46,7 @@
 #include "pmm.h"
 #include "mmu.h"
 #include "heap_alloc.h"
+#include "task_internal.h"
 /* The default definitions are only available for non-MPU ports. The
  * reason is that the stack alignment requirements vary for different
  * architectures.*/
@@ -395,44 +396,6 @@ typedef struct mm_struct
 
 } mm_t;
 
-mm_t* mm_create() {
-    /* 1. Allocate mm_struct from the kernel heap */
-    mm_t *mm = (mm_t *)kmalloc(sizeof(mm_t));
-    if (!mm) return NULL;
-
-    /* 2. Create a new page directory with kernel mappings.
-     *    This calls pmm_alloc_page() internally. */
-    create_user_page_directory(&mm->pgd_phys, (uint32_t**)&mm->pgd); /* Returns physical address of new page directory */
-
-    if (!mm->pgd_phys) {
-        kfree(mm);
-        return NULL;
-    }
-
-    /* 3. Set defaults */
-    mm->user_stack_top = 0xBFFFF000; /* Below 3 GB as stack top */
-    mm->brk = 0x40000000;           /* Heap starts at 1 GB */
-    mm->count = 1;
-
-    return mm;
-}
-
-void mm_destroy(mm_t *mm) {
-    if (!mm) return;
-
-    mm->count--;
-    if (mm->count == 0) {
-        /* 1. Walk user-space portion of the page directory (entries 0-767) */
-        /* 2. Free every present page table and physical page via pmm_free_page() */
-        /* 3. Free the page directory physical page itself */
-        pmm_free_page((void *)(uintptr_t)mm->pgd_phys);
-
-        /* 4. Free the struct */
-        kfree(mm);
-    }
-}
-
-
 /*-----------------------------------------------------------*/
 
 /*
@@ -542,6 +505,50 @@ typedef tskTCB TCB_t;
     portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUMBER_OF_CORES ];
     #define pxCurrentTCB    xTaskGetCurrentTaskHandle()
 #endif
+
+mm_t* mm_create(TaskArgs_t* xTaskArgs) {
+    /* 1. Allocate mm_struct from the kernel heap */
+    mm_t *mm = (mm_t *)kmalloc(sizeof(mm_t));
+    if (!mm) return NULL;
+    if( xTaskArgs->tsk_type == TASK_PROCESS ) {
+        memset(mm, 0, sizeof(mm_t));
+
+        /* 2. Create a new page directory with kernel mappings.
+        *    This calls pmm_alloc_page() internally. */
+        create_user_page_directory(&mm->pgd_phys, (uint32_t**)&mm->pgd); /* Returns physical address of new page directory */
+    }else{
+        /* For threads, share the same page directory as the current task. */
+        mm->pgd_phys = pxCurrentTCB->mm->pgd_phys;
+        mm->pgd = pxCurrentTCB->mm->pgd;
+    }
+
+    if (!mm->pgd_phys) {
+        kfree(mm);
+        return NULL;
+    }
+
+    /* 3. Set defaults */
+    mm->user_stack_top = xTaskArgs->user_stack_top; /* Below 3 GB as stack top */
+    mm->brk = xTaskArgs->brk;           /* Heap starts at 1 GB */
+    mm->count = 1;
+
+    return mm;
+}
+
+void mm_destroy(mm_t *mm) {
+    if (!mm) return;
+
+    mm->count--;
+    if (mm->count == 0) {
+        /* 1. Walk user-space portion of the page directory (entries 0-767) */
+        /* 2. Free every present page table and physical page via pmm_free_page() */
+        /* 3. Free the page directory physical page itself */
+        pmm_free_page((void *)(uintptr_t)mm->pgd_phys);
+
+        /* 4. Free the struct */
+        kfree(mm);
+    }
+}
 
 /* Lists for ready and blocked tasks. --------------------
  * xDelayedTaskList1 and xDelayedTaskList2 could be moved to function scope but
@@ -1402,7 +1409,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             pxNewTCB->xUserPrivilegeLevel = xUserPrivilegeLevel;
 
             if( xUserPrivilegeLevel == cpuPRIVILEGE_LEVEL_3 )
-                pxNewTCB->mm = mm_create();
+                pxNewTCB->mm = mm_create(pvParameters);
 
             if( pxNewTCB->mm != NULL)
             {
@@ -1826,6 +1833,28 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         {
             pxNewTCB->xUserPrivilegeLevel = xPrivilegeLevel;
             pxNewTCB->xUserStackDepth = ( size_t ) uxStackDepth;
+
+            if( xPrivilegeLevel == cpuPRIVILEGE_LEVEL_3 )
+            {
+                pxNewTCB->mm = mm_create(pvParameters);
+
+                if( pxNewTCB->mm == NULL )
+                {
+                    vPortFreeStack( ( StackType_t * ) pxNewTCB->pxStack );
+                    vPortFree( pxNewTCB );
+                    pxNewTCB = NULL;
+                }
+                else
+                {
+                    map_user_section( pxNewTCB->mm->pgd,
+                                      ( uint32_t * ) pxNewTCB->mm->user_stack_top,
+                                      uxStackDepth );
+                }
+            }
+        }
+
+        if( pxNewTCB != NULL )
+        {
 
             #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 )
             {
