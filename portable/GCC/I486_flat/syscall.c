@@ -15,6 +15,7 @@ typedef int (*syscall_t)(uint32_t, uint32_t,
                          uint32_t, uint32_t, uint32_t);
 /* syscall functions interface */
 static int sys_yield(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
+static int sys_write(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_delay(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_exit(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_time_get(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
@@ -29,6 +30,7 @@ static int sys_get_task_name(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uin
 
 syscall_t syscall_table[SYS_MAX] = {
     sys_yield,
+    sys_write,
     sys_delay,
     sys_exit,
     sys_time_get,
@@ -83,6 +85,25 @@ static int sys_yield(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4
     return 0;
 }
 
+static int sys_write(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
+{
+    (void)a3; (void)a4;
+    int fd = a0;
+    if (fd != 1 && fd != 2) // Only support stdout and stderr for now
+        return -EINVAL;
+    const char *str = (const char *)a1;
+    if (str == NULL)
+        return -EINVAL;
+    int len = a2;
+    if (len == 0)        return 0;
+    if (len < 0)         return -EINVAL;
+    for(int i = 0; i < len; i++) {
+        putchar(str[i]);
+        if (str[i] == '\n') // Convert newline to carriage return + newline
+            putchar('\r');
+    }
+    return len;
+}
 static int sys_delay(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
 {
     (void)a1; (void)a2; (void)a3; (void)a4;

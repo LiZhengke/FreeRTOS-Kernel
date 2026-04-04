@@ -8,12 +8,14 @@
 
 #include <stdint.h>
 #include <stdarg.h>
+#include "io.h"
 
 /* Syscall numbers — must match the kernel enum in syscall.h */
-#define SYS_DELAY           1
-#define SYS_PRINTF          7
-#define SYS_TICK_COUNT      10
-#define SYS_GET_TASK_NAME   11
+#define SYS_WRITE            1
+#define SYS_DELAY           2
+#define SYS_PRINTF          8
+#define SYS_TICK_COUNT      11
+#define SYS_GET_TASK_NAME   12
 #define SYSINT              0x30
 
 #define _STR(x)  #x
@@ -22,6 +24,22 @@
 /* ------------------------------------------------------------------ */
 /* Minimal syscall wrappers                                            */
 /* ------------------------------------------------------------------ */
+static int32_t sys_write(int fd, const void *str, int len)
+{
+    int32_t ret;
+
+    __asm__ volatile (
+        "int $" STR(SYSINT)
+        : "=a"(ret)
+        : "a"(SYS_WRITE),
+          "b"(fd),
+          "c"(str),
+          "d"(len)
+        : "memory"
+    );
+
+    return ret;
+}
 
 static int32_t sys_printf(const char *fmt, ...)
 {
@@ -97,15 +115,16 @@ static inline uint16_t get_cpl(void)
 /* ------------------------------------------------------------------ */
 /* Entry point                                                         */
 /* ------------------------------------------------------------------ */
-
 void main(void)
 {
     char name[16];
 
     sys_get_task_name(name, sizeof(name));
+    puts("Main user task.\n");
+    printf("format probe name=%p cpl=%04X\n", (void *) name, (unsigned int) get_cpl());
 
     for (;;) {
-        sys_printf("[%s] tick=%ld cpl=%d\n", name, (long)sys_get_tick_count(), get_cpl());
+        printf("[%s] tick=%lu cpl=%d\n", name, (unsigned long) sys_get_tick_count(), get_cpl());
         sys_delay(100);
     }
 }

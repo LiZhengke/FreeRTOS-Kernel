@@ -68,54 +68,9 @@ target_compile_options(freertos_kernel PRIVATE
     $<$<COMPILE_LANG_AND_ID:C,Clang>:-Wno-cast-align> )
 
 ########################################################################
-# Build user_task.bin from start.S + user_task.c
+# Build and embed the user application image.
 ########################################################################
-set(USER_APP_DIR "${CMAKE_SOURCE_DIR}/application")
-set(USER_START_SRC "${USER_APP_DIR}/start.S")
-set(USER_TASK_SRC  "${USER_APP_DIR}/user_task.c")
-set(USER_START_OBJ "${CMAKE_BINARY_DIR}/user_start.o")
-set(USER_TASK_OBJ  "${CMAKE_BINARY_DIR}/user_task.o")
-set(USER_TASK_ELF  "${CMAKE_BINARY_DIR}/user_task.elf")
-set(USER_BIN_FILE  "${CMAKE_BINARY_DIR}/user_task.bin")
-
-set(USER_CFLAGS -m32 -march=i486 -ffreestanding -fno-pic -fno-pie -fno-stack-protector -fno-builtin -Os)
-
-add_custom_command(
-    OUTPUT ${USER_START_OBJ}
-    COMMAND ${CMAKE_ASM_COMPILER} -m32 -march=i486 -fno-pie -fno-pic -c ${USER_START_SRC} -o ${USER_START_OBJ}
-    DEPENDS ${USER_START_SRC}
-    COMMENT "Assembling user start.S"
-    VERBATIM
-)
-
-add_custom_command(
-    OUTPUT ${USER_TASK_OBJ}
-    COMMAND ${CMAKE_C_COMPILER} ${USER_CFLAGS} -c ${USER_TASK_SRC} -o ${USER_TASK_OBJ}
-    DEPENDS ${USER_TASK_SRC}
-    COMMENT "Compiling user_task.c"
-    VERBATIM
-)
-
-add_custom_command(
-    OUTPUT ${USER_TASK_ELF}
-    COMMAND ${CMAKE_C_COMPILER} -m32 -nostdlib -no-pie -Wl,--build-id=none
-        -T ${USER_APP_DIR}/user.ld ${USER_START_OBJ} ${USER_TASK_OBJ} -o ${USER_TASK_ELF}
-    DEPENDS ${USER_START_OBJ} ${USER_TASK_OBJ} ${USER_APP_DIR}/user.ld
-    COMMENT "Linking user_task.elf"
-    VERBATIM
-)
-
-add_custom_command(
-    OUTPUT ${USER_BIN_FILE}
-    COMMAND ${CMAKE_OBJCOPY} -O binary ${USER_TASK_ELF} ${USER_BIN_FILE}
-    DEPENDS ${USER_TASK_ELF}
-    COMMENT "Generating user_task.bin"
-    VERBATIM
-)
-
-add_custom_target(user_task_bin DEPENDS ${USER_BIN_FILE})
-
-message(STATUS "USER_BIN_FILE: ${USER_BIN_FILE}")
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../application ${CMAKE_BINARY_DIR}/application)
 
 set_source_files_properties(user_bin.S PROPERTIES
     COMPILE_FLAGS "-DUSER_BIN_PATH=\"${USER_BIN_FILE}\"")
@@ -126,7 +81,7 @@ add_executable(${PROJECT_NAME}
     main.c
 )
 
-add_dependencies(${PROJECT_NAME} user_task_bin)
+add_dependencies(${PROJECT_NAME} ${USER_TASK_BIN_TARGET})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${FREERTOS_KERNEL_PATH}/include

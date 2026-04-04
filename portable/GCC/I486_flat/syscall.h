@@ -13,6 +13,7 @@
 
 enum {
     SYS_YIELD = 0,
+    SYS_WRITE,
     SYS_DELAY,
     SYS_EXIT,
     SYS_TIME_GET,
