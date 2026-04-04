@@ -1,14 +1,16 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include "os_helper.h"
 #include "syscall.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
 #include "tss.h"
-
+#include "fs/ramfs/ramfs.h"
 // Forward declaration
+extern file_t fd_table[];
 extern int printf(const char *__restrict __format, ...);
 extern int printf_va(const char *__restrict __format, va_list *__ap);
 typedef int (*syscall_t)(uint32_t, uint32_t,
@@ -27,6 +29,8 @@ static int sys_panic(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4
 static int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_tick_count(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_get_task_name(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
+static int sys_open(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
+static int sys_read(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 
 syscall_t syscall_table[SYS_MAX] = {
     sys_yield,
@@ -41,7 +45,9 @@ syscall_t syscall_table[SYS_MAX] = {
     sys_panic,
     sys_task_create,
     sys_tick_count,
-    sys_get_task_name
+    sys_get_task_name,
+    sys_open,
+    sys_read,
 };
 
 
@@ -247,6 +253,58 @@ static int sys_get_task_name(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uin
     return 0;
 }
 
+static int sys_open(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
+{
+    (void)a1; (void)a2; (void)a3; (void)a4;
+    const char *path = (const char *)a0;
+
+    node_t *n = lookup(path);
+
+    if (!n || n->type != NODE_FILE)
+        return -1;
+
+    for (int i = 0; i < 32; i++) {
+        if (fd_table[i].node == NULL) {
+            fd_table[i].node = n;
+            fd_table[i].offset = 0;
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static int sys_read(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
+{
+    int fd = (int)a0;
+    void *buf = (void *)a1;
+    int len = (int)a2;
+     (void)a3; (void)a4;
+
+    if (fd < 0 || fd >= 32)
+        return -1;
+
+    file_t *f = &fd_table[fd];
+
+    if (!f->node)
+        return -1;
+
+    int remain = f->node->size - f->offset;
+
+    if (remain <= 0)
+        return 0;  // EOF
+
+    if (len > remain)
+        len = remain;
+
+    memcpy(buf,
+           f->node->data + f->offset,
+           len);
+
+    f->offset += len;
+
+    return len;
+}
 /*--------------------------------------------------------------------- */
 /* User-space syscall wrappers. These functions can be called by user tasks to
  * invoke system calls.

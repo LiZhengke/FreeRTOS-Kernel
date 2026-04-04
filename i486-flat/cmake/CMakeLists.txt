@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 project(i486-flat LANGUAGES C ASM)
 
 set(FREERTOS_KERNEL_PATH "../../")
+set(FREERTOS_KERNEL_I486_FLAT_PATH "../")
 set(PORT_I486_FLAT_PATH "../../portable/GCC/I486_flat")
 
 # Add the freertos_config for FreeRTOS-Kernel
@@ -79,12 +80,18 @@ add_executable(${PROJECT_NAME}
     ${PORT_I486_FLAT_PATH}/start.S
     user_bin.S
     main.c
+    ${FREERTOS_KERNEL_I486_FLAT_PATH}/fs/ramfs/ramfs.c
 )
 
 add_dependencies(${PROJECT_NAME} ${USER_TASK_BIN_TARGET})
 
+target_include_directories(freertos_kernel_port PRIVATE
+    ${FREERTOS_KERNEL_I486_FLAT_PATH}
+)
+
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${FREERTOS_KERNEL_PATH}/include
+    ${FREERTOS_KERNEL_I486_FLAT_PATH}
     ${FREERTOS_KERNEL_PATH}/portable/GCC/I486_flat
 )
 

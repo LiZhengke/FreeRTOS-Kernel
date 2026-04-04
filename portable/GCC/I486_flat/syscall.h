@@ -25,6 +25,8 @@ enum {
     SYS_TASK_CREATE,
     SYS_TICK_COUNT,
     SYS_GET_TASK_NAME,
+    SYS_OPEN,
+    SYS_READ,
     SYS_MAX
 };
 
