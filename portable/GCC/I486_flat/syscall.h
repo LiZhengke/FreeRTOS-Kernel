@@ -27,6 +27,7 @@ enum {
     SYS_GET_TASK_NAME,
     SYS_OPEN,
     SYS_READ,
+    SYS_CLOSE,
     SYS_MAX
 };
 

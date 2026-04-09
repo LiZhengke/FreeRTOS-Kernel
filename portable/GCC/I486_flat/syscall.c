@@ -31,6 +31,7 @@ static int sys_tick_count(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32
 static int sys_get_task_name(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_open(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_read(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
+static int sys_close(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 
 syscall_t syscall_table[SYS_MAX] = {
     sys_yield,
@@ -48,6 +49,7 @@ syscall_t syscall_table[SYS_MAX] = {
     sys_get_task_name,
     sys_open,
     sys_read,
+    sys_close,
 };
 
 
@@ -276,10 +278,10 @@ static int sys_open(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
 
 static int sys_read(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
 {
+    (void)a3; (void)a4;
     int fd = (int)a0;
     void *buf = (void *)a1;
     int len = (int)a2;
-     (void)a3; (void)a4;
 
     if (fd < 0 || fd >= 32)
         return -1;
@@ -305,6 +307,19 @@ static int sys_read(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
 
     return len;
 }
+
+static int sys_close(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
+{
+    (void)a1; (void)a2; (void)a3; (void)a4;
+    int fd = (int)a0;
+
+    if (fd < 0 || fd >= 32)
+        return -1;
+
+    fd_table[fd].node = NULL;
+    return 0;
+}
+
 /*--------------------------------------------------------------------- */
 /* User-space syscall wrappers. These functions can be called by user tasks to
  * invoke system calls.

@@ -25,5 +25,5 @@ typedef struct {
 } file_t;
 
 node_t *lookup(const char *path);
-
+void ramfs_init();
 #endif // RAMFS_H

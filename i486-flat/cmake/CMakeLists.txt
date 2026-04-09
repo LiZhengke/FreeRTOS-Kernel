@@ -4,7 +4,7 @@ project(i486-flat LANGUAGES C ASM)
 set(FREERTOS_KERNEL_PATH "../../")
 set(FREERTOS_KERNEL_I486_FLAT_PATH "../")
 set(PORT_I486_FLAT_PATH "../../portable/GCC/I486_flat")
-
+set(PROJECT_NAME "FreeRTOS-i486-flat")
 # Add the freertos_config for FreeRTOS-Kernel
 add_library(freertos_config INTERFACE)
 
@@ -71,26 +71,27 @@ target_compile_options(freertos_kernel PRIVATE
 ########################################################################
 # Build and embed the user application image.
 ########################################################################
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../application ${CMAKE_BINARY_DIR}/application)
+add_subdirectory(${FREERTOS_KERNEL_I486_FLAT_PATH}/application ${CMAKE_BINARY_DIR}/application)
 
-set_source_files_properties(user_bin.S PROPERTIES
-    COMPILE_FLAGS "-DUSER_BIN_PATH=\"${USER_BIN_FILE}\"")
+set(USER_TASK_MAIN_OBJ ${CMAKE_BINARY_DIR}/application/user_task_main.o)
+set_source_files_properties(${USER_TASK_MAIN_OBJ} PROPERTIES
+    EXTERNAL_OBJECT TRUE
+    GENERATED TRUE)
 
 add_executable(${PROJECT_NAME}
     ${PORT_I486_FLAT_PATH}/start.S
-    user_bin.S
     main.c
     ${FREERTOS_KERNEL_I486_FLAT_PATH}/fs/ramfs/ramfs.c
+    ${USER_TASK_MAIN_OBJ}
 )
-
-add_dependencies(${PROJECT_NAME} ${USER_TASK_BIN_TARGET})
+add_dependencies(${PROJECT_NAME} user_task_main)
 
 target_include_directories(freertos_kernel_port PRIVATE
     ${FREERTOS_KERNEL_I486_FLAT_PATH}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${FREERTOS_KERNEL_PATH}/include
+    ${FREERTOS_KERNEL_I486_FLAT_PATH}/include
     ${FREERTOS_KERNEL_I486_FLAT_PATH}
     ${FREERTOS_KERNEL_PATH}/portable/GCC/I486_flat
 )

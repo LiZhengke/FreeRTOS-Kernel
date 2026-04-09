@@ -11,27 +11,6 @@ static void *alloc(size_t size)
     return pvPortMalloc(size);
 }
 
-static void ramfs_strcpy(char *dst, const char *src)
-{
-    while (*src != '\0') {
-        *dst++ = *src++;
-    }
-
-    *dst = '\0';
-}
-
-static int ramfs_strcmp(const char *a, const char *b)
-{
-    while ((*a != '\0') && (*a == *b)) {
-        a++;
-        b++;
-    }
-
-    return (int) ((unsigned char) *a - (unsigned char) *b);
-}
-
-static const uint8_t ucHelloData[] = "hello\n";
-
 /**
   ******************************************************************************
  * @file    ramfs.c
@@ -62,7 +41,7 @@ node_t* create_dir(node_t *parent, const char *name) {
     node_t *n = alloc(sizeof(node_t)); // 用你自己的内存分配
     memset(n, 0, sizeof(node_t));
 
-    ramfs_strcpy(n->name, name);
+    strcpy(n->name, name);
     n->type = NODE_DIR;
     n->parent = parent;
 
@@ -81,7 +60,7 @@ node_t* create_file(node_t *parent,
     node_t *n = alloc(sizeof(node_t));
     memset(n, 0, sizeof(node_t));
 
-    ramfs_strcpy(n->name, name);
+    strcpy(n->name, name);
     n->type = NODE_FILE;
     n->data = data;
     n->size = size;
@@ -111,7 +90,7 @@ node_t* lookup(const char *path) {
         // 在当前目录查找
         int found = 0;
         for (int j = 0; j < cur->child_count; j++) {
-            if (ramfs_strcmp(cur->children[j]->name, name) == 0) {
+            if (strcmp(cur->children[j]->name, name) == 0) {
                 cur = cur->children[j];
                 found = 1;
                 break;
@@ -126,14 +105,17 @@ node_t* lookup(const char *path) {
     return cur;
 }
 
+extern uint8_t _binary_i486_flat_application_start[];
+extern uint8_t _binary_i486_flat_application_end[];
+
 void ramfs_init() {
     root = create_dir(NULL, "/");
 
     node_t *bin = create_dir(root, "bin");
 
-    uint32_t size = (uint32_t) (sizeof(ucHelloData) - 1U);
+    uint32_t size = _binary_i486_flat_application_end - _binary_i486_flat_application_start;
 
-    create_file(bin, "hello",
-                (uint8_t *)ucHelloData,
+    create_file(bin, "main",
+                (uint8_t *)_binary_i486_flat_application_start,
                 size);
 }

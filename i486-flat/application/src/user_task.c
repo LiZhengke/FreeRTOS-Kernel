@@ -24,6 +24,7 @@
 /* ------------------------------------------------------------------ */
 /* Minimal syscall wrappers                                            */
 /* ------------------------------------------------------------------ */
+__attribute__((unused))
 static int32_t sys_write(int fd, const void *str, int len)
 {
     int32_t ret;
@@ -41,6 +42,7 @@ static int32_t sys_write(int fd, const void *str, int len)
     return ret;
 }
 
+__attribute__((unused))
 static int32_t sys_printf(const char *fmt, ...)
 {
     int32_t ret;

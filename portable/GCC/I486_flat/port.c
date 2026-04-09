@@ -40,6 +40,7 @@
 #include "port.h"
 #include "mmu.h"
 #include "task_internal.h"
+#include "fs/ramfs/ramfs.h"
 
 uint8_t ucHeap[1] __attribute__((section(".heap")));
 
@@ -805,6 +806,25 @@ void *memcpy(void *dest, const void *src, size_t n)
     return dest;
 }
 
+void strcpy(char *dst, const char *src)
+{
+    while (*src != '\0') {
+        *dst++ = *src++;
+    }
+
+    *dst = '\0';
+}
+
+int strcmp(const char *a, const char *b)
+{
+    while ((*a != '\0') && (*a == *b)) {
+        a++;
+        b++;
+    }
+
+    return (int) ((unsigned char) *a - (unsigned char) *b);
+}
+
 int putchar(int c)
 {
     outb(0x3F8, (char)c);   // COM1 port
@@ -823,6 +843,7 @@ void vStartMainTask( void )
     ( void ) puts( "init_tss\n" );
     init_tss( 0 );
 
+    ramfs_init();
     TaskArgs_t xMainTaskArgs = {
         .tsk_type = TASK_PROCESS,
         .xUserPrivilegeLevel = cpuPRIVILEGE_LEVEL_3,
@@ -831,7 +852,7 @@ void vStartMainTask( void )
     };
 
     xResult = xTaskCreate( NULL,
-                           "Main",
+                           "/bin/main",
                            STACK_SIZE / 4, /* Stack depth in words. */
                            &xMainTaskArgs,
                            configMAX_PRIORITIES - 1U,
