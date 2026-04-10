@@ -1,6 +1,22 @@
 cmake_minimum_required(VERSION 3.15)
 project(i486-flat LANGUAGES C ASM)
 
+set(FS_TYPE "FATFS" CACHE STRING "Filesystem type")
+set_property(CACHE FS_TYPE PROPERTY STRINGS FATFS LFS)
+
+if (FS_TYPE STREQUAL "FATFS")
+    set(configUSE_FATFS 1)
+    include(fatfs.mk)
+elseif (FS_TYPE STREQUAL "LFS")
+    set(configUSE_LITTLEFS 1)
+    include(lfs.mk)
+endif()
+
+configure_file(
+    ${CMAKE_SOURCE_DIR}/../configuration/config.h.in
+    ${CMAKE_BINARY_DIR}/generated/config.h
+)
+
 set(FREERTOS_KERNEL_PATH "../../")
 set(PORT_I486_FLAT_PATH "../../portable/GCC/I486_flat")
 
@@ -9,7 +25,8 @@ add_library(freertos_config INTERFACE)
 
 target_include_directories(freertos_config
     INTERFACE
-    "../configuration"
+    "${CMAKE_SOURCE_DIR}/../configuration"
+    "${CMAKE_BINARY_DIR}/generated"
 )
 
 if (DEFINED FREERTOS_SMP_EXAMPLE AND FREERTOS_SMP_EXAMPLE STREQUAL "1")

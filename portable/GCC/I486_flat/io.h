@@ -13,8 +13,12 @@ static inline uint8_t inb(uint16_t port) {
     return ret;
 }
 
+static inline void insw(uint16_t port, void *addr, uint32_t count) {
+    __asm__ volatile ("rep insw" : "+D"(addr), "+c"(count) : "d"(port) : "memory");
+}
+
 static inline void io_wait(void) {
-    // Classic approach: write a byte to port 0x80 to create a small delay
+    /* Classic approach: write a byte to port 0x80 to create a small delay */
     outb(0x80, 0);
 }
 

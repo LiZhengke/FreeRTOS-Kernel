@@ -1,0 +1,4 @@
+#pragma once
+
+#cmakedefine configUSE_LITTLEFS 1
+#cmakedefine configUSE_FATFS 1
