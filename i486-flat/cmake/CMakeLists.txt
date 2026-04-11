@@ -105,7 +105,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${FREERTOS_KERNEL_PATH}/portable/GCC/I486_flat
 )
 
-target_link_libraries(${PROJECT_NAME} freertos_kernel freertos_config)
+target_link_libraries(${PROJECT_NAME} freertos_kernel freertos_config fatfs)
 
 set_property(TARGET freertos_kernel PROPERTY C_STANDARD 90)
 

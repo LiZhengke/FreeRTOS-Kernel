@@ -320,6 +320,7 @@ add_library(freertos_kernel_port OBJECT
         GCC/I486_flat/mmu.c
         GCC/I486_flat/pmm.c
         GCC/I486_flat/vmm.c
+        GCC/I486_flat/os_helper.c
         GCC/I486_flat/heap_alloc.c
         MemMang/heap_4.c>
 

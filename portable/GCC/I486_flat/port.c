@@ -788,22 +788,6 @@ void vGenerateYieldInterrupt( void )
     __asm volatile ( portYIELD_INTERRUPT );
 }
 
-void *memset(void *s, int c, size_t n)
-{
-    unsigned char *p = s;
-    while (n--)
-        *p++ = (unsigned char)c;
-    return s;
-}
-
-void *memcpy(void *dest, const void *src, size_t n)
-{
-    unsigned char *d = dest;
-    const unsigned char *s = src;
-    while (n--)
-        *d++ = *s++;
-    return dest;
-}
 
 int putchar(int c)
 {
@@ -813,6 +797,7 @@ int putchar(int c)
 
 #define STACK_SIZE (configMINIMAL_STACK_SIZE * 4) /* Kernel and user stacks. */
 
+extern void fatfs_test(void);
 void vStartMainTask( void )
 {
     TaskHandle_t xMainTaskHandle = NULL;
@@ -822,6 +807,8 @@ void vStartMainTask( void )
 
     ( void ) puts( "init_tss\n" );
     init_tss( 0 );
+
+    fatfs_test();
 
     TaskArgs_t xMainTaskArgs = {
         .tsk_type = TASK_PROCESS,

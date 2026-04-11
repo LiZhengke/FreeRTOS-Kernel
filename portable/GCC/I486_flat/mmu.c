@@ -6,7 +6,7 @@
 #include "vmm.h"
 #include "heap_alloc.h"
 #include "FreeRTOS.h" // Add this to define StackType_t
-#include "port.h"    // Add this for memset and memcpy
+#include "os_helper.h"    // Add this for memset and memcpy
 
 /* Extract the upper 20 bits of an address (aligned to 4KB) */
 #define PAGE_ADDR(addr) ((uint32_t)(addr) & 0xFFFFF000)

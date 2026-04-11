@@ -21,7 +21,8 @@ static int MMC_disk_read(void *buf, uint32_t lba,  uint32_t count);
 #define DEV_USB		2	/* Map USB MSD to physical drive 2 */
 #define DEV_RAM	    3	/* Map RAM disk to physical drive 3 */
 
-
+#define SECTOR_SIZE 512
+#define TOTAL_SECTORS (16 * 1024 * 1024 / SECTOR_SIZE)  /* 假设 16MB disk */
 /*-----------------------------------------------------------------------*/
 /* Get Drive Status                                                      */
 /*-----------------------------------------------------------------------*/
@@ -30,32 +31,9 @@ DSTATUS disk_status (
 	BYTE pdrv		/* Physical drive nmuber to identify the drive */
 )
 {
-	DSTATUS stat = 0;
-	// int result;
+	UNUSED(pdrv);
 
-	switch (pdrv) {
-	case DEV_RAM :
-		// result = RAM_disk_status();
-
-		// translate the reslut code here
-
-		return stat;
-
-	case DEV_MMC :
-		// result = MMC_disk_status();
-
-		// translate the reslut code here
-
-		return stat;
-
-	case DEV_USB :
-		// result = USB_disk_status();
-
-		// translate the reslut code here
-
-		return stat;
-	}
-	return STA_NOINIT;
+	return 0;
 }
 
 
@@ -93,7 +71,7 @@ DSTATUS disk_initialize (
 
 		return stat;
 	}
-	return STA_NOINIT;
+	return 0;
 }
 
 
@@ -109,39 +87,12 @@ DRESULT disk_read (
 	UINT count		/* Number of sectors to read */
 )
 {
-	DRESULT res = RES_PARERR;
-	int result;
+	UNUSED(pdrv);
+	int result = MMC_disk_read(buff, sector, count);
 
-	switch (pdrv) {
-	case DEV_RAM :
-		// translate the arguments here
+	return result == 0 ? RES_OK : RES_ERROR;
 
-		// result = RAM_disk_read(buff, sector, count);
 
-		// translate the reslut code here
-
-		return res;
-
-	case DEV_MMC :
-		// translate the arguments here
-
-		result = MMC_disk_read(buff, sector, count);
-
-		// translate the reslut code here
-
-		return result == 0 ? RES_OK : RES_ERROR;
-
-	case DEV_USB :
-		// translate the arguments here
-
-		// result = USB_disk_read(buff, sector, count);
-
-		// translate the reslut code here
-
-		return res;
-	}
-
-	return RES_PARERR;
 }
 
 
@@ -212,9 +163,6 @@ DRESULT disk_ioctl (
 	void *buff		/* Buffer to send/receive control data */
 )
 {
-	UNUSED(cmd);
-	UNUSED(buff);
-
 	DRESULT res = RES_PARERR;
 	// int result;
 
@@ -228,6 +176,24 @@ DRESULT disk_ioctl (
 	case DEV_MMC :
 
 		// Process of the command for the MMC/SD card
+		switch (cmd) {
+			case CTRL_SYNC:
+				// 确保写入完成（PIO 模式一般不需要额外处理）
+				return RES_OK;
+
+			case GET_SECTOR_COUNT:
+				*(LBA_t*)buff = TOTAL_SECTORS;
+				return RES_OK;
+
+			case GET_SECTOR_SIZE:
+				*(WORD*)buff = SECTOR_SIZE;
+				return RES_OK;
+
+			case GET_BLOCK_SIZE:
+				// 擦除块大小（单位：sector）
+				*(DWORD*)buff = 1;
+				return RES_OK;
+			}
 
 		return res;
 

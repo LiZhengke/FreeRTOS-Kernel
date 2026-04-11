@@ -1,6 +1,6 @@
 #include <stddef.h>
 #include "pmm.h"
-#include "port.h"
+#include "os_helper.h"
 
 uint8_t pmm_bitmap[BITMAP_SIZE];
 /**
