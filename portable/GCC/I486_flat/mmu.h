@@ -25,20 +25,20 @@ void create_user_page_directory(uint32_t* pgd_phys, uint32_t** pgd_virt);
 #define KERNEL_OFFSET     KERNEL_VIRT_START
 #define USER_TEXT_VIRT_START   0x08048000
 /* Convert physical address to kernel virtual address (Physical to Virtual). */
-inline void* p2v(phys_addr_t phys) {
+static inline void* p2v(phys_addr_t phys) {
     /* This simple conversion is valid only for physical addresses in the 1MB ~ __phys_end range. */
     return (void *)(phys + KERNEL_OFFSET);
 }
 
 /* Convert kernel virtual address to physical address (Virtual to Physical). */
-inline phys_addr_t v2p(void* virt) {
+static inline phys_addr_t v2p(void* virt) {
     /* This conversion is valid only for kernel code/data virtual addresses. */
     return (phys_addr_t)((uint32_t)virt - KERNEL_OFFSET);
 }
 
 uint32_t user_to_phys(void *v_addr);
-void map_user_section(pde_t* pgd, void* user_stack_top , size_t user_stack_depth);
-void spawn_user_task(pde_t* pgd);
+void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth, const char * const pcName);
+uint32_t spawn_user_task(pde_t* pgd,void* user_entry,size_t user_task_section_size);
 
 __attribute__((section(".boot.text")))
 void load_page_directory(uint32_t pd);

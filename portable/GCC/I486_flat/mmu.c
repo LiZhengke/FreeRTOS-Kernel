@@ -1,12 +1,15 @@
 /* Page directory / page table entry common attribute bits */
 #include <stddef.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include "mmu.h"
 #include "pmm.h"
 #include "vmm.h"
 #include "heap_alloc.h"
 #include "FreeRTOS.h" // Add this to define StackType_t
 #include "os_helper.h"    // Add this for memset and memcpy
+#include "elf.h"    // Add this for Elf32_Ehdr and Elf32_Phdr
+#include "loader.h"    // Add this for elf_load()
 
 /* Extract the upper 20 bits of an address (aligned to 4KB) */
 #define PAGE_ADDR(addr) ((uint32_t)(addr) & 0xFFFFF000)
@@ -275,9 +278,7 @@ uint32_t user_to_phys(void *v_addr) {
    return (uint32_t)v_addr;
 }
 
-void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth) {
-
-
+void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth, const char * const pcName) {
      /* Compute stack size in bytes. */
     uint32_t stack_size = user_stack_depth * sizeof( StackType_t );
     /* Allocate physical pages for the user stack. */
@@ -306,31 +307,31 @@ void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth)
                 PG_PRESENT | PG_RW | PG_USER );
     }
     /* Map user code section. */
-    spawn_user_task(pgd);
+    if(pcName != NULL)
+        elf_load(pcName, pgd, false);
 }
 
-extern char _user_blobs_start[];
-extern char _user_blobs_end[];
-
-// You can define multiple binary blobs later if needed.
-// Or export a _user_task_bin_start symbol in assembly.
-
-void spawn_user_task(pde_t* pgd) {
+uint32_t spawn_user_task(pde_t* pgd,void* user_entry,size_t user_task_section_size) {
     // Get the cached user program image location inside the kernel.
-    void* template_addr = (void*)&_user_blobs_start;
-    uint32_t template_size = (uint32_t)&_user_blobs_end - (uint32_t)&_user_blobs_start;
+    uint32_t prog_phys = (uint32_t)pmm_alloc_page(user_task_section_size/4096);
+    uint32_t user_entry_addr = ( uint32_t ) user_entry;
 
-    // 1. Prepare a physical page.
-    uint32_t prog_phys = (uint32_t)pmm_alloc_page();
+    uint32_t num_pages = (user_task_section_size + 4095) / 4096;
 
-    // 2. Copy the embedded kernel blob into the new physical page.
-    // Note: template_addr is a kernel virtual address (0xC0...).
-    //       p2v(prog_phys) is also a kernel virtual address for that physical page.
-    memcpy((void*)p2v(prog_phys), template_addr, template_size);
+    size_t i;
 
-    // 3. Map into task address space.
-    // Virtual address 0x08048000 -> physical page prog_phys.
-    map_page(pgd, USER_TEXT_VIRT_START, prog_phys, PG_PRESENT | PG_RW | PG_USER);
+    /* Map enough pages according to STACK_SIZE. */
+    for( i = 0; i < num_pages; i++ )
+    {
+        uint32_t phys_page = prog_phys  + (i * 4096);
+        uint32_t virt_page = user_entry_addr + (uint32_t)(i * 4096);
+        map_page( pgd,
+                virt_page,
+                phys_page,
+                PG_PRESENT | PG_RW | PG_USER );
+    }
+
+    return prog_phys;
 }
 
 void mmu_init(void) {

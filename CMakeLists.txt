@@ -259,6 +259,7 @@ target_sources(freertos_kernel PRIVATE
     tasks.c
     timers.c
     blk/ata.c
+    loader/loader.c
 )
 
 if (DEFINED FREERTOS_HEAP )

@@ -45,6 +45,16 @@ message(STATUS "FreeRTOS port = ${FREERTOS_PORT}")
 # Adding the FreeRTOS-Kernel subdirectory
 add_subdirectory(${FREERTOS_KERNEL_PATH} FreeRTOS-Kernel)
 
+# Port sources include loader interfaces (e.g., in mmu.c).
+target_include_directories(freertos_kernel_port PRIVATE
+    ${FREERTOS_KERNEL_PATH}/loader
+)
+
+# Provide FatFS headers to the kernel (needed by loader/loader.c)
+if (DEFINED fatfs_SOURCE_DIR)
+    target_include_directories(freertos_kernel PRIVATE ${fatfs_SOURCE_DIR}/source)
+endif()
+
 ########################################################################
 # Overall Compile Options
 # Note the compile option strategy is to error on everything and then

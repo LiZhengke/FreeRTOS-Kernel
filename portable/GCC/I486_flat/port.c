@@ -29,7 +29,7 @@
 /* Standard includes. */
 #include <limits.h>
 #include <stdio.h>
-
+#include <stdbool.h>
 /* Scheduler includes. */
 #include "FreeRTOS.h"
 #include "task.h"
@@ -40,6 +40,7 @@
 #include "port.h"
 #include "mmu.h"
 #include "task_internal.h"
+#include "loader.h"
 
 uint8_t ucHeap[1] __attribute__((section(".heap")));
 
@@ -809,6 +810,7 @@ void vStartMainTask( void )
     init_tss( 0 );
 
     fatfs_test();
+    elf_load("user_task.elf", NULL, true);
 
     TaskArgs_t xMainTaskArgs = {
         .tsk_type = TASK_PROCESS,
@@ -818,7 +820,7 @@ void vStartMainTask( void )
     };
 
     xResult = xTaskCreate( NULL,
-                           "Main",
+                           "user_task.elf",
                            STACK_SIZE / 4, /* Stack depth in words. */
                            &xMainTaskArgs,
                            configMAX_PRIORITIES - 1U,

@@ -1413,7 +1413,10 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             if( pxNewTCB->mm != NULL)
             {
-                map_user_section( pxNewTCB->mm->pgd, (uint32_t*)pxNewTCB->mm->user_stack_top, uxStackDepth);
+                map_user_section( pxNewTCB->mm->pgd,
+                                  ( uint32_t * ) pxNewTCB->mm->user_stack_top,
+                                  uxStackDepth,
+                                  pcName );
             }
 
             #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 )
@@ -1806,7 +1809,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 /* MISRA Ref 11.5.1 [Malloc memory assignment] */
                 /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-115 */
                 /* coverity[misra_c_2012_rule_11_5_violation] */
-                pxNewTCB = ( TCB_t * ) pvPortMalloc( sizeof( TCB_t ) );
+                pxNewTCB = ( TCB_t * ) pvPortMallocStack( sizeof( TCB_t ) );
 
                 if( pxNewTCB != NULL )
                 {
@@ -1841,14 +1844,14 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 if( pxNewTCB->mm == NULL )
                 {
                     vPortFreeStack( ( StackType_t * ) pxNewTCB->pxStack );
-                    vPortFree( pxNewTCB );
+                    vPortFreeStack( pxNewTCB );
                     pxNewTCB = NULL;
                 }
                 else
                 {
                     map_user_section( pxNewTCB->mm->pgd,
                                       ( uint32_t * ) pxNewTCB->mm->user_stack_top,
-                                      uxStackDepth );
+                                      uxStackDepth , pcName );
                 }
             }
         }

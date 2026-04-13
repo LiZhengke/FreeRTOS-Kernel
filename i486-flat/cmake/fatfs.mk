@@ -33,3 +33,8 @@ target_include_directories(fatfs PUBLIC
     PRIVATE
     ${fatfs_SOURCE_DIR}/source
 )
+
+target_compile_options(fatfs PRIVATE
+    -Wno-unused-parameter
+    -Wno-unused-variable
+)
