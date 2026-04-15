@@ -192,7 +192,7 @@ void map_page(uint32_t *dir_vir, uint32_t virtual_addr, uint32_t physical_addr, 
     if (!dir_vir[pd_index] || !(dir_vir[pd_index] & PG_PRESENT)) {
         /* Page table does not exist; allocate a physical page for it.
          * Note: this must be a physical page address! */
-        uint32_t new_pt = (uint32_t)pmm_alloc_page();
+        uint32_t new_pt = (uint32_t)pmm_alloc_page(1); /* Allocate one page for the page table */
         if (!new_pt) return; /* Out of memory - in a real kernel, you'd want to handle this more gracefully */
 
         /* Zero-fill the new page table to prevent stale mappings */
@@ -223,7 +223,7 @@ inline void flush_tlb(uint32_t virtual_addr) {
 
 void create_user_page_directory(uint32_t* pgd_phys, uint32_t** pgd_virt) {
     /* Allocate a physical page for the new page directory */
-    uint32_t new_pd_phys = (uint32_t)pmm_alloc_page();
+    uint32_t new_pd_phys = (uint32_t)pmm_alloc_page(1); /* Allocate one page for the page directory */
     if (!new_pd_phys) return;
 
     uint32_t *pd = (uint32_t *)p2v(new_pd_phys); /* Convert to virtual address for initialization */
@@ -252,7 +252,7 @@ void* kernel_malloc_page(pde_t* page_dir_virt, size_t pages) {
 
     for (size_t i = 0; i < pages; i++) {
         /* 2. Allocate a physical RAM page */
-        uint32_t phys_addr = (uint32_t)pmm_alloc_page();
+        uint32_t phys_addr = (uint32_t)pmm_alloc_page(1); /* Allocate one page */
 
         /* 3. Establish the virtual-to-physical mapping */
         uint32_t current_v = (uint32_t)virt_addr + (i * PAGE_SIZE);
@@ -304,7 +304,7 @@ void map_user_section(pde_t* pgd, void* user_stack_top, size_t user_stack_depth,
         map_page( pgd,
                 virt_page,
                 phys_page,
-                PG_PRESENT | PG_RW | PG_USER );
+                PG_PRESENT | PG_RW | PG_USER | PG_EXEC );
     }
     /* Map user code section. */
     if(pcName != NULL)
@@ -341,4 +341,41 @@ void mmu_init(void) {
     #if ( configRUN_ADDITIONAL_TESTS == 1 )
         prvRunMmuUnitTests();
     #endif
+}
+
+/*
+    * Free all user-space pages with PG_EXEC flag in the given page directory.
+    * This is typically called when a user task exits to clean up its memory.
+    * It iterates through the user-space PDEs and their corresponding PTEs,
+    * freeing any physical pages that are marked as present and user-accessible.
+*/
+void free_user_space(uint32_t *pgd) {
+    uint32_t *pgdir = pgd;
+
+    for (int i = 0; i < KERNEL_PDE_START; i++) {
+        uint32_t pde = pgdir[i];
+
+        // 跳过不存在的
+        if (!(pde & PG_PRESENT))
+            continue;
+
+        uint32_t *pt = (uint32_t*)(pde & ~0xFFF);
+
+        for (int j = 0; j < 1024; j++) {
+            uint32_t pte = pt[j];
+
+            if (!(pte & PG_PRESENT))
+                continue;
+
+            // 🔥 只释放用户页
+            if (pte & PG_USER && pte & PG_EXEC) {
+                void *phys = (void*)(pte & ~0xFFF);
+                pmm_free_pages(phys, 1);   // 释放物理页
+            }
+            pt[j] = 0;
+        }
+        // 🔥 释放页表本身
+        pmm_free_pages(pt, 1);
+        pgdir[i] = 0;
+    }
 }

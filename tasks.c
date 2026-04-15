@@ -9030,3 +9030,15 @@ void vTaskResetState( void )
     #endif /* #if ( configGENERATE_RUN_TIME_STATS == 1 ) */
 }
 /*-----------------------------------------------------------*/
+
+void vTaskExec( void )
+{
+    mm_t *pMM = pxCurrentTCB->mm;
+    free_user_space(pMM->pgd);
+
+    /*
+    create_user_page_directory(&pMM->pgd_phys, &pMM->pgd);
+    map_user_section(pMM->pgd, pMM->user_stack_top, pxCurrentTCB->xUserStackDepth, NULL);
+    */
+
+}

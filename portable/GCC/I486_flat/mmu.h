@@ -10,6 +10,8 @@
 #define PG_PCD      0x010  /* Cache disabled */
 #define PG_ACCESSED 0x020  /* Accessed */
 #define PG_DIRTY    0x040  /* Dirty (PTE only) */
+#define PG_EXEC     0x080  /* Executable */
+
 
 typedef uint32_t pde_t;
 typedef uint32_t pte_t;
@@ -47,5 +49,5 @@ __attribute__((section(".boot.text")))
 void enable_paging(void);
 
 void mmu_init(void);
-
+void free_user_space(uint32_t *pgd);
 #endif /* MMU_H */

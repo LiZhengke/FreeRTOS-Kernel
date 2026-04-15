@@ -3478,6 +3478,8 @@ BaseType_t xTaskCatchUpTicks( TickType_t xTicksToCatchUp ) PRIVILEGED_FUNCTION;
  * \ingroup SchedulerControl
  */
 void vTaskResetState( void ) PRIVILEGED_FUNCTION;
+void vTaskExec( void ) PRIVILEGED_FUNCTION;
+
 
 
 /*-----------------------------------------------------------

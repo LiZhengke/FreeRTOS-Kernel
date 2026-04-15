@@ -27,6 +27,9 @@ static int sys_panic(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4
 static int sys_task_create(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_tick_count(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
 static int sys_get_task_name(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
+static int sys_exec(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
+static int sys_exit(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4);
+
 
 syscall_t syscall_table[SYS_MAX] = {
     sys_yield,
@@ -41,7 +44,9 @@ syscall_t syscall_table[SYS_MAX] = {
     sys_panic,
     sys_task_create,
     sys_tick_count,
-    sys_get_task_name
+    sys_get_task_name,
+    sys_exec,
+    sys_exit
 };
 
 
@@ -245,6 +250,25 @@ static int sys_get_task_name(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uin
         buf[i] = name[i];
     buf[i] = '\0';
     return 0;
+}
+
+static int sys_exec(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
+{
+    const char *path = (const char *)a0;
+    (void)a1; (void)a2; (void)a3; (void)a4;
+    if (path == NULL)
+        return -EINVAL;
+
+    // elf_exec(path, pxCurrentTCB->pxDummy3); // pxDummy3 mirrors mm pointer in TCB_t, which is used as pgd for user tasks
+    return 0; // 实际不会执行到这里
+}
+
+static int sys_exit(uint32_t a0,uint32_t a1,uint32_t a2,uint32_t a3,uint32_t a4)
+{
+    int code = (int)a0;
+    (void)a1; (void)a2; (void)a3; (void)a4;
+    task_exit();
+    schedule();
 }
 
 /*--------------------------------------------------------------------- */
